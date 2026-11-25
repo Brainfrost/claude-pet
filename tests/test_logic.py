@@ -106,15 +106,17 @@ def test_fullscreen_detection_ignores_maximized_and_own_windows():
 
 
 # ------------------------------------------------------------ Adoption und Steckbrief
-def test_adoption_pool_limits_rolls_and_varies():
+def test_adoption_offers_every_creature_with_random_character():
     import random
-    from claude_pet.adoption import AdoptionPool
-    pool = AdoptionPool(random.Random(1))
-    picks = [pool.roll() for _ in range(5)]
-    assert all(picks) and pool.roll() is None and pool.left == 0
-    assert len({c for c, _ in picks}) == 5, "fünf verschiedene Figuren"
-    pool.select(1)
-    assert pool.current == picks[1]
+    from claude_pet import creatures
+    from claude_pet.adoption import AdoptionOffer
+    offer = AdoptionOffer(random.Random(1))
+    assert [c for c, _ in offer.picks] == creatures.creature_ids(), "alle Figuren zur Auswahl"
+    assert all(p in creatures.personalities() for _, p in offer.picks)
+    other = AdoptionOffer(random.Random(2))
+    assert [p for _, p in offer.picks] != [p for _, p in other.picks], "Charaktere sind nicht immer gleich"
+    offer.select(3)
+    assert offer.current == offer.picks[3]
 
 
 def test_profile_adopt_and_archive(tmp_path, monkeypatch):

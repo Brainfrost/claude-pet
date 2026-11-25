@@ -60,10 +60,10 @@ Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
 
 ## Adoption, Figur und Charakter
 
-Beim ersten Start öffnet sich das **Adoptionsfenster** (`claude_pet/adoption.py`): bis zu 5× würfeln
-(möglichst lauter verschiedene Figuren aus `design/pet-data.json`), zwischen den Vorschlägen hin- und
-herblättern, einen Namen vergeben, adoptieren. **Figur, Charakter und Name bleiben danach für immer** –
-es gibt kein Neu-Würfeln mehr. Jede Figur hat einen Lieblingscharakter (50 %), sonst einer der anderen.
+Beim ersten Start öffnet sich das **Adoptionsfenster** (`claude_pet/adoption.py`): alle Figuren aus
+`design/pet-data.json` zur freien Auswahl. Jede bekommt beim Öffnen einen zufälligen Charakter und beim
+Anschauen eine von Haiku erfundene Persönlichkeit – einfache Auswahl, trotzdem nie ganz gleiche Pets.
+Namen vergeben, adoptieren. **Figur, Charakter, Persönlichkeit und Name bleiben danach für immer.** Jede Figur hat einen Lieblingscharakter (50 %), sonst einer der anderen.
 Steckbrief: `%LOCALAPPDATA%\claude-pet\profile.json`; frühere Pets liegen in `…\claude-pet\archiv\`.
 Fürs Entwickeln: mit `set CLAUDE_PET_DEV=1` gibt es im Tray „Pet archivieren und neu adoptieren“.
 

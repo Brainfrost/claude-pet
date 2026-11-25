@@ -1,18 +1,21 @@
-"""Adoption: bis zu 5× würfeln, zwischen den Vorschlägen wählen, benennen – danach gehört das Pet dir.
+"""Adoption: aus allen Figuren frei wählen, benennen – danach gehört das Pet dir.
 
-Figur, Charakter und Name werden bei der Adoption festgelegt und später nie mehr geändert.
+Jede Figur bekommt beim Öffnen des Fensters einen zufälligen Charakter (der Lieblingscharakter der Figur
+mit 50 % Chance) und – sobald man sie anschaut – eine von Haiku erfundene einmalige Persönlichkeit. So hat
+jeder eine einfache Auswahl, und die Pets sind trotzdem nie ganz gleich. Figur, Charakter, Persönlichkeit
+und Name werden bei der Adoption festgelegt und später nie mehr geändert.
 """
 import random
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QPainter
-from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout,
-                             QWidget)
+from PyQt6.QtGui import QColor, QPainter
+from PyQt6.QtWidgets import (QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
+                             QVBoxLayout, QWidget)
 
 from . import creatures, personas, profile
 from .speech import Speech
 
-MAX_ROLLS = 5
+GRID_COLS = 7
 CHAR_SHORT = {
     "faul": "Faul – schläft gern und lange, zieht sich in ruhige Sessions zurück.",
     "neugierig": "Neugierig – folgt dir überall hin und kommentiert, was im Terminal passiert.",
@@ -21,36 +24,21 @@ CHAR_SHORT = {
 }
 
 
-class AdoptionPool:
-    """Die gewürfelten Vorschläge (ohne Qt, damit testbar)."""
+class AdoptionOffer:
+    """Alle Figuren mit je einem zufälligen Charakter (ohne Qt, damit testbar)."""
 
-    def __init__(self, rnd=None, max_rolls=MAX_ROLLS):
+    def __init__(self, rnd=None):
         self.rnd = rnd or random.Random()
-        self.max_rolls = max_rolls
-        self.rolls = []          # [(figur, charakter)]
-        self.index = -1
-
-    @property
-    def left(self):
-        return self.max_rolls - len(self.rolls)
-
-    def roll(self):
-        if self.left <= 0:
-            return None
-        ids = creatures.creature_ids()
-        seen = {c for c, _ in self.rolls}
-        cid = self.rnd.choice([c for c in ids if c not in seen] or ids)    # möglichst Neues zeigen
-        self.rolls.append((cid, profile.roll_personality(cid, self.rnd)))
-        self.index = len(self.rolls) - 1
-        return self.rolls[-1]
+        self.picks = [(cid, profile.roll_personality(cid, self.rnd)) for cid in creatures.creature_ids()]
+        self.index = self.rnd.randrange(len(self.picks))
 
     def select(self, i):
-        if 0 <= i < len(self.rolls):
+        if 0 <= i < len(self.picks):
             self.index = i
 
     @property
     def current(self):
-        return self.rolls[self.index] if self.rolls else None
+        return self.picks[self.index]
 
 
 def short_description(cid):
@@ -59,7 +47,7 @@ def short_description(cid):
 
 
 class _Preview(QWidget):
-    """Animierte Vorschau einer Figur."""
+    """Animierte Vorschau einer Figur (groß) bzw. Kachel im Raster (klein, anklickbar)."""
 
     def __init__(self, renderer, px, parent=None, clickable=False):
         super().__init__(parent)
@@ -82,27 +70,20 @@ class _Preview(QWidget):
 
     def paintEvent(self, e):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor("#1e1b2e" if not self.selected else "#2e2850"))
+        p.fillRect(self.rect(), QColor("#2e2850" if self.selected else "#1e1b2e"))
         if self.clickable:
             p.setPen(QColor("#8f86c9" if self.selected else "#3a3556"))
             p.drawRoundedRect(self.rect().adjusted(1, 1, -2, -2), 8, 8)
-        if self.pick is None:
-            p.setPen(QColor("#5c5680"))
-            f = QFont("Segoe UI")
-            f.setPixelSize(max(14, self.height() // 3))
-            p.setFont(f)
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "?")
-            p.end()
-            return
-        cid, pers = self.pick
-        c = creatures.get(cid)
-        cycle = int(self.t / 2.5) % 3 if not self.clickable else 0
-        state = ("idle", "walk", "happy")[cycle]
-        img = self.renderer.render(c, variant=pers, state=state, t=self.t, walk_i=int(self.t / 0.15),
-                                   blinking=(self.t % 3.7) < 0.13, facing=1, px=self.px, stage="erwachsen")
-        x = (self.width() - img.width()) // 2
-        y = (self.height() - img.height()) // 2
-        p.drawImage(x, y, img)
+        if self.pick is not None:
+            cid, pers = self.pick
+            c = creatures.get(cid)
+            moving = not self.clickable or self.selected
+            state = ("idle", "walk", "happy")[int(self.t / 2.5) % 3] if not self.clickable else (
+                "happy" if self.selected else "idle")
+            img = self.renderer.render(c, variant=pers, state=state, t=self.t if moving else 0.0,
+                                       walk_i=int(self.t / 0.15), blinking=(self.t % 3.7) < 0.13,
+                                       facing=1, px=self.px, stage="erwachsen")
+            p.drawImage((self.width() - img.width()) // 2, (self.height() - img.height()) // 2, img)
         p.end()
 
 
@@ -124,27 +105,38 @@ class AdoptionDialog(QWidget):
                         font-size: 15px; }
             QPushButton { background: #2b2745; border: 1px solid #4a4470; border-radius: 8px; padding: 8px 14px; }
             QPushButton:hover { background: #363057; }
-            QPushButton:disabled { color: #6b6690; border-color: #2b2745; }
             QPushButton#adopt { background: #6d5ce8; border-color: #8b7cf0; font-weight: 600; }
             QPushButton#adopt:hover { background: #7d6df0; }
         """)
-        self.pool = AdoptionPool(rnd)
+        self.offer = AdoptionOffer(rnd)
         self.renderer = creatures.Renderer()
         self._name_edited = False
-        self.personas = {}                     # Index des Wurfs -> von Haiku erfundene Persönlichkeit
+        self.personas = {}                     # Figur -> von Haiku erfundene Persönlichkeit ("" = keine)
         self.speech = Speech({"name": "", "personality": "neugierig"})
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(10)
-        head = QLabel("Ein neues Pet adoptieren")
+        head = QLabel("Ein Pet adoptieren")
         head.setObjectName("title")
-        hint = QLabel(f"Du kannst bis zu {MAX_ROLLS}× würfeln und dann eines der Vorschläge wählen. "
-                      "Figur, Charakter und Name bleiben danach für immer.")
+        hint = QLabel("Wähle dein Pet aus. Jedes hat heute einen zufälligen Charakter und eine eigene "
+                      "Persönlichkeit. Figur, Charakter und Name bleiben nach der Adoption für immer.")
         hint.setObjectName("sub")
         hint.setWordWrap(True)
         root.addWidget(head)
         root.addWidget(hint)
+
+        grid = QGridLayout()
+        grid.setSpacing(6)
+        self.tiles = []
+        for i, pick in enumerate(self.offer.picks):
+            t = _Preview(self.renderer, px=2, clickable=True)
+            t.setFixedSize(84, 64)
+            t.set_pick(pick)
+            t.on_click = lambda i=i: self._select(i)
+            grid.addWidget(t, i // GRID_COLS, i % GRID_COLS)
+            self.tiles.append(t)
+        root.addLayout(grid)
 
         self.preview = _Preview(self.renderer, px=5)
         self.preview.setMinimumSize(420, 150)
@@ -160,25 +152,14 @@ class AdoptionDialog(QWidget):
         self.char.setObjectName("char")
         self.char.setWordWrap(True)
         self.char.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        for w in (self.art, self.desc, self.char):
-            root.addWidget(w)
         h2 = QLabel("PERSÖNLICHKEIT")
         h2.setObjectName("head2")
         self.persona = QLabel()
         self.persona.setObjectName("persona")
         self.persona.setWordWrap(True)
-        for w in (h2, self.persona):
+        self.persona.setMinimumHeight(70)
+        for w in (self.art, self.desc, self.char, h2, self.persona):
             root.addWidget(w)
-
-        thumbs = QHBoxLayout()
-        self.thumbs = []
-        for i in range(MAX_ROLLS):
-            t = _Preview(self.renderer, px=2, clickable=True)
-            t.setFixedSize(86, 70)
-            t.on_click = lambda i=i: self._select(i)
-            thumbs.addWidget(t)
-            self.thumbs.append(t)
-        root.addLayout(thumbs)
 
         name_row = QHBoxLayout()
         name_row.addWidget(QLabel("Name:"))
@@ -186,80 +167,63 @@ class AdoptionDialog(QWidget):
         self.name.setMaxLength(24)
         self.name.textEdited.connect(lambda _: setattr(self, "_name_edited", True))
         name_row.addWidget(self.name, 1)
-        root.addLayout(name_row)
-
-        buttons = QHBoxLayout()
-        self.roll_btn = QPushButton()
-        self.roll_btn.clicked.connect(self._roll)
         self.adopt_btn = QPushButton("Adoptieren")
         self.adopt_btn.setObjectName("adopt")
         self.adopt_btn.clicked.connect(self._adopt)
-        buttons.addWidget(self.roll_btn)
-        buttons.addStretch(1)
-        buttons.addWidget(self.adopt_btn)
-        root.addLayout(buttons)
+        name_row.addWidget(self.adopt_btn)
+        root.addLayout(name_row)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._animate)
         self.timer.start(60)
-        self._roll()
-        self.resize(580, 760)
+        self._select(self.offer.index)
+        self.resize(680, 800)
 
     # ------------------------------------------------------------ Ablauf
-    def _roll(self):
-        if self.pool.roll() is not None:
-            i = self.pool.index
-            cid, pers = self.pool.current
-            started = self.speech.invent_persona({"creature": cid, "personality": pers},
-                                                 lambda text, i=i: self._persona_ready(i, text))
-            if not started:
-                self.personas[i] = ""
-            self._show_current(new_name=True)
-
-    def _persona_ready(self, i, text):
-        self.personas[i] = text
-        if i == self.pool.index:
-            self._show_persona()
-
-    def _show_persona(self):
-        text = self.personas.get(self.pool.index)
-        if text is None:
-            self.persona.setText("Einen Moment, die Persönlichkeit entsteht gerade …")
-        elif text:
-            self.persona.setText(text)
-        else:
-            self.persona.setText("(Ohne claude-CLI: die Persönlichkeit entsteht nach der Adoption.)")
-
     def _select(self, i):
-        if i < len(self.pool.rolls):
-            self.pool.select(i)
-            self._show_current(new_name=not self._name_edited)
-
-    def _show_current(self, new_name):
-        cid, pers = self.pool.current
+        self.offer.select(i)
+        cid, pers = self.offer.current
         c = creatures.get(cid)
         self.preview.set_pick((cid, pers))
         self.art.setText(f"{c['name']} · {c['art']}")
         self.desc.setText(short_description(cid))
         self.char.setText(CHAR_SHORT.get(pers, pers))
-        self._show_persona()
-        if new_name:
+        if not self._name_edited:
             self.name.setText(c["name"])
-            self._name_edited = False
-        for i, t in enumerate(self.thumbs):
-            t.set_pick(self.pool.rolls[i] if i < len(self.pool.rolls) else None)
-            t.selected = i == self.pool.index
+        for j, t in enumerate(self.tiles):
+            t.selected = j == self.offer.index
             t.update()
-        left = self.pool.left
-        self.roll_btn.setText(f"🎲  Neu würfeln (noch {left})" if left else "Keine Würfe mehr – wähle eines")
-        self.roll_btn.setEnabled(left > 0)
+        if cid not in self.personas:
+            self.personas[cid] = None          # wird gerade erfunden
+            started = self.speech.invent_persona({"creature": cid, "personality": pers},
+                                                 lambda text, cid=cid: self._persona_ready(cid, text))
+            if not started:
+                self.personas[cid] = ""
+        self._show_persona()
+
+    def _persona_ready(self, cid, text):
+        self.personas[cid] = text
+        if self.offer.current[0] == cid:
+            self._show_persona()
+
+    def _show_persona(self):
+        text = self.personas.get(self.offer.current[0])
+        if text is None:
+            self.persona.setText("Einen Moment, die Persönlichkeit entsteht gerade …")
+        elif text:
+            self.persona.setText(text)
+        else:
+            self.persona.setText("(Die Persönlichkeit entsteht nach der Adoption.)")
 
     def _animate(self):
         self.preview.t += 0.06
         self.preview.update()
+        t = self.tiles[self.offer.index]
+        t.t += 0.06
+        t.update()
 
     def _adopt(self):
-        cid, pers = self.pool.current
+        cid, pers = self.offer.current
         name = self.name.text().strip() or creatures.get(cid)["name"]
         label = creatures.data()["variants"].get(pers, {}).get("label", pers)
         ok = QMessageBox.question(
@@ -269,5 +233,5 @@ class AdoptionDialog(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if ok == QMessageBox.StandardButton.Yes:
             self.timer.stop()
-            self.adopted.emit(cid, pers, name, self.personas.get(self.pool.index) or "")
+            self.adopted.emit(cid, pers, name, self.personas.get(cid) or "")
             self.close()
