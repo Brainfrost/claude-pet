@@ -85,6 +85,9 @@ class Controller:
         self.stats = StatsWatcher(self.prof.get("born"))
         self.stats.delta.connect(self.on_stats)
         self.stats.start()
+        self.vision = vision.VisionWorker()        # Bildanalyse im Hintergrund (Animation ruckelt nie)
+        self.vision.done.connect(self.on_vision)
+        self.vision.start()
 
         self.timer = QTimer()
         self.timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -342,17 +345,15 @@ class Controller:
         i = self._scan_i % len(screens)
         self._scan_i += 1
         g = screens[i].geometry()
-        term = self.world.snap.win_rect if self.world.ok else None
-        runs = vision.platforms_in_rect(g.x(), g.y(), g.width(), g.height())
-        if term:
-            runs = [r for r in runs
-                    if not (term[0] <= (r[1] + r[2]) / 2 < term[2] and term[1] <= r[0] < term[3])]
-        self.debug_scan[i] = runs
+        if not self.vision.busy("scan"):
+            self.vision.request("scan", [(g.x(), g.y(), g.width(), g.height())], info=i)
 
     def quit(self):
         self.prof["last_seen"] = time.time()
         profile.save(self.prof)
         self.stats.stop()
+        self.vision.stop()
+        self.vision.wait(1500)
         self.watcher.stop()
         self.watcher.wait(1500)
         self.tray.hide()
@@ -457,10 +458,9 @@ class Controller:
             old = dict(self.world.win_rects)
             self.world.set_windows(winapi.window_rects(), pet.H + 6, self.screen_top_at)
             pet.on_windows(self.world, old)
-        if outside and now - self._vision_check > 0.33:
+        if outside and now - self._vision_check > 0.33 and not self.vision.busy("near"):
             self._vision_check = now
-            self.world.set_vision(vision.platforms_around(pet.x, pet.y, 1100, 900, self._exclusions()))
-            pet.on_vision(self.world)
+            self.vision.request("near", [(pet.x - 550, pet.y - 540, 1100, 900)], self._exclusions())
         if pet.want_adventure:
             self._adventure()
         self.watcher.poll_hz = 8 if (pet.pane is not None and pet.state != "hidden") else 4
@@ -538,15 +538,33 @@ class Controller:
             if not in_term(cx, cy):
                 spots.append((cx, cy))
         random.shuffle(spots)
-        for cx, cy in spots[:2]:
-            runs = [r for r in vision.platforms_around(cx, cy, 900, 700, self._exclusions())
-                    if r[2] - r[1] >= pet.W * 1.2 and not in_term((r[1] + r[2]) / 2, r[0])]
+        rects = [(cx - 450, cy - 420, 900, 700) for cx, cy in spots[:2]]
+        if rects:
+            self.vision.request("trip", rects, self._exclusions())
+
+    def on_vision(self, tag, info, rect, runs):
+        """Ergebnis einer Bildanalyse aus dem Hintergrund-Thread."""
+        term = self.world.snap.win_rect if self.world.ok else None
+
+        def in_term(x, y):
+            return term and term[0] <= x < term[2] and term[1] <= y < term[3]
+
+        runs = [r for r in runs if not in_term((r[1] + r[2]) / 2, r[0])]
+        pet = self.pet
+        if tag == "near":
+            if pet.pane is None:                    # inzwischen wieder im Terminal: verwerfen
+                self.world.set_vision(runs)
+                pet.on_vision(self.world)
+        elif tag == "scan":
+            if self.debug_on:
+                self.debug_scan[info] = runs
+        elif tag == "trip":
+            runs = [r for r in runs if r[2] - r[1] >= pet.W * 1.2]
             if runs:
                 self.world.set_vision(runs)         # Ziel muss beim Landen bekannt sein
                 y, a, b = random.choice(runs)
                 if pet.adventure_to(a, b, y):
                     log.info("Ausflug nach (%d, %d)", (a + b) // 2, y)
-                return
 
     def place(self):
         x, y, w, h = self.win.geometry_for(self.pet)

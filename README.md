@@ -21,7 +21,7 @@ python -m venv .venv
 |---|---|
 | `terminal.py` | liest Windows Terminal per UI Automation (8×/s): Tabs (✳ = untätig, Spinner = arbeitet) und sichtbaren Text mit Pixel-Positionen |
 | `world.py` | Plattformen: Textstücke, Pane-Boden, Fensterkanten, Bildanalyse-Kanten; erkennt Scrollen |
-| `vision.py` | Bildanalyse: waagrechte Kanten in beliebigen Fenstern |
+| `vision.py` | Bildanalyse: waagrechte Kanten in beliebigen Fenstern (GDI-Aufnahme, eigener Hintergrund-Thread) |
 | `pet.py` | Physik und Bewegung (laufen, springen, klettern, Tricks) |
 | `brain.py` | Charakter: welche Session, Tab-Wechsel, Maus-Verhalten |
 | `reactions.py` | erkennt Ereignisse im Text/Tab-Titel, liest laufend mit |
