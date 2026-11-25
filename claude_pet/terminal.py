@@ -12,7 +12,6 @@ from . import winapi
 
 log = logging.getLogger(__name__)
 
-POLL_HZ = 15
 REFIND_EVERY = 0.5  # Sekunden: Tabs/TermControls neu suchen
 
 
@@ -49,7 +48,6 @@ class Snapshot:
     win_rect: tuple = None
     panes: list = field(default_factory=list)
     tabs: list = field(default_factory=list)
-    minimized: bool = False
     t: float = 0.0
 
     @property
@@ -116,11 +114,9 @@ class TerminalWatcher(QThread):
         return wins
 
     def poll(self):
-        U = self.U
         wins = self._terminal_windows()
         if not wins:
-            minimized = bool(winapi.any_terminal_window())
-            return Snapshot(ok=False, minimized=minimized, t=time.time())
+            return Snapshot(ok=False, t=time.time())
         hwnd = wins[0]
         now = time.time()
         if hwnd != self._cache_hwnd or now - self._cache_t > REFIND_EVERY:

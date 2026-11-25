@@ -7,7 +7,7 @@ import math
 import random
 
 from .creatures import STAGE_PX
-from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_TABS, ROW_VISION, ROW_WINDOW, Platform
+from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_VISION, ROW_WINDOW, Platform
 
 GROUND = {"idle", "walk", "sit", "sleep", "happy"}
 AIR = {"fall", "jump"}
@@ -53,7 +53,6 @@ class Pet:
         self.placed = False
         self.busy = False           # Brain steuert gerade: keine eigenen Entscheidungen
         self.run = 1.0              # Tempo-Faktor fürs aktuelle Laufen (Flucht = schneller)
-        self.vis_scale = 1.0
         self.size_factor = 1.0      # Einstellung „Größe“
         self.clip_y = None          # beim Klettern: alles oberhalb dieser Höhe ist im Reiter verschwunden
         self.tab_target = None      # (x, Unterkante) des Reiters, in den es gerade will
@@ -109,7 +108,7 @@ class Pet:
             return
         sp = self.support
         new = None
-        if sp.row in (ROW_FLOOR, ROW_TABS):
+        if sp.row == ROW_FLOOR:
             new = next((p for p in world.platforms if p.pane == sp.pane and p.row == sp.row), None)
         else:
             d = world.shifts[sp.pane] if sp.pane < len(world.shifts) else None
@@ -583,9 +582,9 @@ class Pet:
             return
         if r < w_walk:
             lo, hi = p.x0 + self.px, p.x1 - self.px
-            if p.row in (ROW_FLOOR, ROW_TABS):
+            if p.row == ROW_FLOOR:
                 lo, hi = max(p.x0, self.x - 8 * self.W), min(p.x1, self.x + 8 * self.W)
-            if random.random() < 0.25 and p.row != ROW_TABS:
+            if random.random() < 0.25:
                 lo, hi = lo - 2 * self.W, hi + 2 * self.W
             self.walk_to(random.uniform(lo, hi) if hi > lo else (lo + hi) / 2)
         elif r < w_walk + w_jump:
@@ -662,7 +661,7 @@ class Pet:
             return
         r = random.random()
         careful = 0.6 if self.personality in ("aengstlich", "faul") else 0.35
-        if r < careful or self.support.row == ROW_TABS:
+        if r < careful:
             p = self.support
             self.target_x = random.uniform(p.x0 + self.px, max(p.x0 + self.px, p.x1 - self.px))
         elif r < 0.8:

@@ -7,7 +7,6 @@ SURFACE = 0.18         # Plattform-Oberkante relativ zur Zeilenhöhe (Oberkante 
 
 ROW_FLOOR = -1         # Unterkante eines Panes
 ROW_SCREEN = -2        # Bildschirmboden außerhalb des Terminals
-ROW_TABS = -3          # Unterkante der Tab-Leiste (das Pet steht "auf" den Reitern)
 ROW_WINDOW = -4        # Oberkante eines anderen Fensters (pane = -1, text = hwnd)
 ROW_VISION = -5        # per Bildanalyse erkannte Kante in irgendeinem Fenster (pane = -1)
 OUTSIDE_ROWS = (ROW_SCREEN, ROW_WINDOW, ROW_VISION)
@@ -67,7 +66,6 @@ class World:
         self.vis_platforms = []
         self.platforms = []
         self.win_rects = {}        # hwnd -> (l, t, r, b)
-        self.by_key = {}           # (pane, row, seg_index) -> Platform
         self.line_h = 24.0
         self._prev_rows = []       # pro Pane: Liste der Zeilentexte
         self.shifts = []           # pro Pane: um wie viele Zeilen der Inhalt seit dem letzten Snapshot nach oben gewandert ist (None = unbekannt)

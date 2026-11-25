@@ -1,9 +1,8 @@
 """Das 'Gehirn': entscheidet nach Charakter, in welcher Session (Tab) das Pet lebt und was es vorhat.
 
 Ziele (self.goal):
-  ("enter", ref)  – zur Tab-Leiste, zum Reiter von ref laufen und darin verschwinden
-  ("drop",)       – gerade aus einem Reiter geschlüpft: runter auf den Text (oder erst zum aktiven Tab)
-  ("visit",)      – auf der Tab-Leiste zum aktiven Tab laufen, dann runter auf den Text
+  ("enter", ref)  – in den Reiter des Tabs ref klettern (ducken, hochspringen, hineinziehen)
+  ("drop",)       – gerade aus einem Reiter herausgeklettert: runter auf den Text des aktiven Tabs
 """
 import logging
 import random
@@ -40,7 +39,6 @@ class Brain:
         self.cursor_hist = deque(maxlen=20)
         self.cursor_still_t = 0.0
         self.cling_t = 0.0
-        self._enter_jump = False
 
     # ------------------------------------------------------------ Tabs finden
     def _ref(self, world, i):
@@ -156,7 +154,7 @@ class Brain:
         pet = self.pet
         kind = self.goal[0]
         if pet.state in ("held", "hidden"):
-            self.goal, pet.busy, self._enter_jump = None, False, False
+            self.goal, pet.busy = None, False
             return
         if pet.state in TRANSITION or pet.state == "cling":
             return
@@ -172,7 +170,7 @@ class Brain:
         i = self._find(world, self.goal[1])
         sy = world.tab_strip_y()
         if i is None or sy is None or world.snap.tabs[i].selected:
-            self.goal, pet.busy, self._enter_jump = None, False, False
+            self.goal, pet.busy = None, False
             return
         if pet.state in AIR:
             return

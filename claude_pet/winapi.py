@@ -122,11 +122,6 @@ def find_terminal_windows():
     return [h for h in enum_windows() if class_name(h) == WT_CLASS and is_shown(h)]
 
 
-def any_terminal_window():
-    """Irgendein WT-Fenster, auch minimiert (für 'Terminal ist weg' vs. 'nur verdeckt')."""
-    return [h for h in enum_windows() if class_name(h) == WT_CLASS and user32.IsWindowVisible(h)]
-
-
 def _is_overlay_like(hwnd):
     ex = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
     if ex & WS_EX_TRANSPARENT:

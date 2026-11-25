@@ -122,7 +122,7 @@ class StatsWatcher(QThread):
         return d
 
     def _line(self, raw, d, known_sessions, state):
-        if b'"tool_use"' not in raw and b'"type":"user"' not in raw:
+        if b'tool_use' not in raw and b'"user"' not in raw:
             return
         try:
             e = json.loads(raw)

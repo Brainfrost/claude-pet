@@ -46,8 +46,11 @@ def detect(gray, exclude=()):
     for k in range(1, GAP_X + 1):
         m[:, k:] |= d[:, :-k]
     m[1:, :] |= m[:-1, :]
-    # Textur (Fotos, Verläufe mit Rauschen): Anteil der Kantenpixel im Band
+    # Textur (Fotos, Verläufe mit Rauschen): Anteil der Kantenpixel in der ganzen Zeile ...
     band = d.mean(axis=1)
+    # ... und Präfixsummen, um ihn für jede einzelne Kante in konstanter Zeit zu prüfen
+    box_cs = np.zeros((h, w + 1), dtype=np.int32)
+    np.cumsum(np.cumsum(d, axis=1), axis=0, out=box_cs[1:, 1:])
     out = []
     for y in range(h - 1):
         if band[y] > TEXTURE:
@@ -59,8 +62,13 @@ def detect(gray, exclude=()):
         starts = np.flatnonzero(diff == 1)
         ends = np.flatnonzero(diff == -1)
         for s, e in zip(starts, ends):
-            if e - s >= MIN_LEN:
-                out.append((_snap_up(d, y, int(s), int(e)) + 1, int(s), int(e - GAP_X)))
+            if e - s < MIN_LEN:
+                continue
+            # zusätzlich lokal: Fotos, die nur einen Teil der Zeile einnehmen
+            y0, y1 = max(0, y - 3), min(h - 1, y + 4)
+            if (box_cs[y1, e] - box_cs[y0, e] - box_cs[y1, s] + box_cs[y0, s]) / ((y1 - y0) * (e - s)) > TEXTURE:
+                continue
+            out.append((_snap_up(d, y, int(s), int(e)) + 1, int(s), int(e - GAP_X)))
     return _merge(out)
 
 

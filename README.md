@@ -5,29 +5,52 @@ jede sichtbare Textzeile ist eine Plattform, auf der es läuft, sitzt, schläft 
 
 ## Starten
 
-```
-start.cmd
-```
-
-Beenden und Debug-Ansicht über das Tray-Symbol. Log: `%LOCALAPPDATA%\claude-pet\pet.log`.
+`start.cmd` (oder `run.pyw` doppelklicken) – startet ohne Konsolenfenster; mit Autostart läuft es ab
+dem Windows-Login automatisch. Beenden über das Tray-Symbol.
 
 Einrichtung (einmalig):
 
 ```
 python -m venv .venv
-.venv\Scripts\python -m pip install PyQt6 comtypes
+.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-## Wie es funktioniert
+## Aufbau
 
-- `terminal.py` – liest Windows Terminal per UI Automation (~15x/s): Tabs inkl. Zustand aus dem
-  Titel (✳ = untätig, Spinner = arbeitet) und den sichtbaren Text mit Pixel-Positionen.
-- `world.py` – macht daraus Plattformen (Textstücke, Lücken ab 3 Leerzeichen sind Löcher) und
-  erkennt Scrollen, damit das Pet mit seiner Zeile mitfährt.
-- `pet.py` – Physik und Verhalten (laufen, springen, fallen, sitzen, schlafen, Reaktionen).
-- `ui.py` – transparentes Pet-Fenster, Maus (hochheben/werfen, anstupsen, streicheln), Tray.
+| Modul | Aufgabe |
+|---|---|
+| `terminal.py` | liest Windows Terminal per UI Automation (8×/s): Tabs (✳ = untätig, Spinner = arbeitet) und sichtbaren Text mit Pixel-Positionen |
+| `world.py` | Plattformen: Textstücke, Pane-Boden, Fensterkanten, Bildanalyse-Kanten; erkennt Scrollen |
+| `vision.py` | Bildanalyse: waagrechte Kanten in beliebigen Fenstern |
+| `pet.py` | Physik und Bewegung (laufen, springen, klettern, Tricks) |
+| `brain.py` | Charakter: welche Session, Tab-Wechsel, Maus-Verhalten |
+| `reactions.py` | erkennt Ereignisse im Text/Tab-Titel, liest laufend mit |
+| `speech.py` / `personas.py` | Haiku-Sprüche + Aktionen, Grund- und individuelle Persönlichkeit |
+| `growth.py` / `stats.py` | Entwicklung: XP aus den Transcripts, Stufen, Accessoires, Tricks, Bindung, Stimmung |
+| `creatures.py` | rendert die Figuren aus `design/pet-data.json` |
+| `windows.py` | Fenster: Pet, Sprechblase, Reiter-Effekt, Entwickler-Ansicht |
+| `tray.py` | Tray-Menü |
+| `controller.py` | verbindet alles, Spielschleife |
+| `settings.py` / `quiet.py` / `profile.py` | Einstellungen + Autostart, Ruhemodus, Steckbrief |
 
 Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
+
+## Entwickeln
+
+```
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest tests        # 28 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pyflakes claude_pet tests
+```
+
+- Tests bauen Terminal-Snapshots künstlich (`tests/conftest.py: make_snapshot`) und simulieren Pet +
+  Gehirn ohne Fenster, u.a. „verschwindet mit dem Tab und sitzt beim Zurückwechseln wieder dort“.
+- **Entwickler-Ansicht** (Tray): zeigt über allen Bildschirmen die erkannten Ebenen (blau Terminal-Text,
+  rot Pane-Boden, gelb Fensterkanten, grün Bildanalyse), die Tabs und Zustand/Ziel/Laune des Pets;
+  schaltet das Log auf ausführlich.
+- **Log:** `%LOCALAPPDATA%\claude-pet\pet.log`, rotiert (3 × 1 MB). Ausführliche Statuszeilen nur mit
+  Entwickler-Ansicht oder `set CLAUDE_PET_DEBUG=1`.
+- Daten: `%LOCALAPPDATA%\claude-pet\` – `profile.json` (Pet), `settings.json`, `stats_state.json`.
 
 ## Maus
 
