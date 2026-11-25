@@ -232,3 +232,14 @@ def test_can_jump_down_to_a_lower_line_below_itself():
         if pet.grounded:
             break
     assert pet.support.row > start_row, "ist tiefer gekommen"
+
+
+def test_daily_moments():
+    from claude_pet.daily import due_moments
+    fri = datetime(2026, 11, 27, 12, 0)                    # Freitag
+    assert due_moments(fri, []) == ["lunch"]
+    assert due_moments(fri, ["lunch"]) == []
+    assert due_moments(datetime(2026, 11, 27, 15, 0), []) == ["weekend"]
+    assert due_moments(datetime(2026, 11, 26, 15, 0), []) == [], "Donnerstag: kein Wochenende"
+    assert due_moments(datetime(2026, 11, 26, 17, 30), []) == ["evening"]
+    assert due_moments(datetime(2026, 11, 28, 17, 30), []) == [], "Samstag: kein Feierabend"

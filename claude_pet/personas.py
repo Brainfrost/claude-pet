@@ -182,6 +182,9 @@ LINE_KINDS = {
     "break": "Erinnerung an eine Pause – benutze genau den Platzhalter {hours} (z.B. „2 Stunden“)",
     "welcome": "dein Mensch ist aus einer Pause zurück",
     "commit": "dein Mensch hat Code committet",
+    "lunch": "es ist Mittagszeit",
+    "evening": "es ist Feierabend",
+    "weekend": "Freitagnachmittag, das Wochenende naht",
     "push": "dein Mensch hat Code hochgeladen (push)",
 }
 

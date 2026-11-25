@@ -5,6 +5,26 @@ import time
 from datetime import datetime
 
 
+# Einmal am Tag: (Schlüssel, Wochentage (0=Mo) oder None, von, bis) – Uhrzeiten als (h, min)
+MOMENTS = [
+    ("lunch", None, (11, 45), (13, 0)),
+    ("evening", (0, 1, 2, 3, 4), (17, 0), (18, 30)),
+    ("weekend", (4,), (14, 0), (17, 0)),
+]
+
+
+def due_moments(now, done):
+    """Welche Tagesmomente jetzt fällig sind (und heute noch nicht dran waren)."""
+    t = (now.hour, now.minute)
+    out = []
+    for key, days, start, end in MOMENTS:
+        if key in done or (days is not None and now.weekday() not in days):
+            continue
+        if start <= t < end:
+            out.append(key)
+    return out
+
+
 def daypart(now=None):
     h = (now or datetime.now()).hour
     if 5 <= h < 10:

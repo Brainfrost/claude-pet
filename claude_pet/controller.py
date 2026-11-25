@@ -7,7 +7,7 @@ from PyQt6.QtCore import QPoint, QRect, Qt, QTimer
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QApplication
 
-from datetime import date
+from datetime import date, datetime
 
 from . import creatures, daily, growth, profile, quiet, settings, vision, winapi
 from .adoption import AdoptionDialog
@@ -265,6 +265,19 @@ class Controller:
                 profile.save(self.prof)
                 self.pet.react("done")
                 self.speech.canned("morning", force=True)
+            # Mittag, Feierabend, Freitagnachmittag – je einmal am Tag, wenn du gerade da bist
+            moments = self.prof.setdefault("moments", {"date": "", "done": []})
+            if moments.get("date") != today:
+                moments["date"], moments["done"] = today, []
+            if daily.idle_seconds() < 60 and self.pet.state not in ("hidden", "sleep"):
+                for key in daily.due_moments(datetime.now(), moments["done"])[:1]:
+                    moments["done"].append(key)
+                    profile.save(self.prof)
+                    self.pet.perform({"lunch": "freuen", "evening": "hinsetzen", "weekend": "tanzen"}[key])
+                    if key == "evening":
+                        self.pet._effect("gähn", life=1.8)
+                    self.speech.canned(key, force=True)
+                    log.info("Tagesmoment: %s", key)
         if now - self._work_t > 30:
             self._work_t = now
             s = self.settings

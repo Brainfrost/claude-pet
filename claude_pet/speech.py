@@ -67,6 +67,24 @@ CANNED = {
         "verspielt": ["Huckepack!", "Hab dich!"],
         "aengstlich": ["Bitte nicht loslassen…"],
     },
+    "lunch": {
+        "faul": ["Mittag. Endlich ein guter Grund, nichts zu tun.", "Essen … und danach ein Nickerchen."],
+        "neugierig": ["Mittagszeit! Was gibt's heute bei dir?", "Hunger! Und du? Schon was gegessen?"],
+        "verspielt": ["Mampf-Alarm! Ab in die Mittagspause!", "Mittag! Wer zuerst beim Essen ist!"],
+        "aengstlich": ["Ä-ähm, es ist Mittag … du solltest was essen, ja?", "Mittagspause? Bitte vergiss nicht zu essen."],
+    },
+    "evening": {
+        "faul": ["Feierabend. Ich hab heute wirklich alles gegeben.", "Schon fünf. Ich bin müde für zwei."],
+        "neugierig": ["Feierabend in Sicht! Was nimmst du dir für morgen vor?", "Schon so spät? Was war heute das Beste?"],
+        "verspielt": ["Feierabend! Rennen wir zur Tür?", "Fünf Uhr! Zeit für Unfug!"],
+        "aengstlich": ["Es ist schon spät … mach nicht zu lang, ja?", "Feierabend? Ich pass so lange auf alles auf."],
+    },
+    "weekend": {
+        "faul": ["Wochenende naht. Zwei Tage Schlaf am Stück.", "Freitag. Mein Lieblingstag zum Nichtstun."],
+        "neugierig": ["Fast Wochenende! Was hast du vor?", "Freitag! Was war diese Woche dein Highlight?"],
+        "verspielt": ["WOCHENENDE IN SICHT! Freitagstänzchen!", "Freitag! Ich tanz schon mal vor."],
+        "aengstlich": ["Bald Wochenende … ich werd dich vermissen.", "Freitag! Bitte erhol dich gut, ja?"],
+    },
     "messenger": {
         "faul": ["„{tab}“ ist fertig. Ich bin extra aufgestanden.", "Psst … „{tab}“ wartet auf dich."],
         "neugierig": ["„{tab}“ ist fertig – was ist rausgekommen? Schau mal!", "Komm mit! „{tab}“ ist fertig!"],
