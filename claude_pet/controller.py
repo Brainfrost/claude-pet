@@ -48,6 +48,9 @@ class Controller:
         self.tabfx = TabFx()
         self.debug = DebugOverlay(self)
         self.debug_on = False
+        self.debug_scan = {}            # Bildschirm-Index -> Kanten der Ganz-Bildschirm-Analyse
+        self._scan_i = 0
+        self._scan_t = 0.0
 
         self.speech = Speech(self.prof)
         self.speech.said.connect(self._say)
@@ -232,10 +235,27 @@ class Controller:
         self.debug_on = on
         logging.getLogger().setLevel(logging.DEBUG if on else logging.INFO)
         if on:
+            self._scan_i = 0
             self.debug.sync()
             self.debug.show()
         else:
             self.debug.hide()
+            self.debug_scan.clear()
+
+    def _debug_scan_next(self):
+        """Entwickler-Ansicht: reihum einen ganzen Bildschirm analysieren (nur zur Anzeige)."""
+        screens = QGuiApplication.screens()
+        if not screens:
+            return
+        i = self._scan_i % len(screens)
+        self._scan_i += 1
+        g = screens[i].geometry()
+        term = self.world.snap.win_rect if self.world.ok else None
+        runs = vision.platforms_in_rect(g.x(), g.y(), g.width(), g.height())
+        if term:
+            runs = [r for r in runs
+                    if not (term[0] <= (r[1] + r[2]) / 2 < term[2] and term[1] <= r[0] < term[3])]
+        self.debug_scan[i] = runs
 
     def quit(self):
         self.prof["last_seen"] = time.time()
@@ -318,9 +338,13 @@ class Controller:
         self.speech.tick(self.world, pet.pane or 0, visible and pet.grounded)
         self.bubble.follow(pet, visible)
         self._adapt_rate(pet)
-        if self.debug_on and now - self._debug_t > 0.1:
-            self._debug_t = now
-            self.debug.sync()
+        if self.debug_on:
+            if now - self._scan_t > 0.7:
+                self._scan_t = now
+                self._debug_scan_next()
+            if now - self._debug_t > 0.1:
+                self._debug_t = now
+                self.debug.sync()
         if now - self._log_t > 2:
             self._log_t = now
             sp = pet.support

@@ -32,6 +32,7 @@ class _Overlay(QWidget):
     def showEvent(self, e):
         super().showEvent(e)
         winapi.add_exstyle(int(self.winId()), _CLICK_THROUGH)
+        winapi.exclude_from_capture(int(self.winId()))
 
 
 # ===================================================================== Pet
@@ -52,6 +53,7 @@ class PetWindow(QWidget):
     def showEvent(self, e):
         super().showEvent(e)
         winapi.add_exstyle(int(self.winId()), winapi.WS_EX_NOACTIVATE | winapi.WS_EX_TOOLWINDOW)
+        winapi.exclude_from_capture(int(self.winId()))
 
     def geometry_for(self, pet):
         w, h, fx, fy = self.ctl.renderer.size(pet.creature, pet.px)
@@ -316,6 +318,11 @@ class DebugOverlay(_Overlay):
         w, pet = ctl.world, ctl.pet
         ox, oy = self.geometry().x(), self.geometry().y()
         p = QPainter(self)
+        scan = QColor("#4dff88")
+        scan.setAlpha(110)
+        for runs in ctl.debug_scan.values():
+            for y, a, b in runs:
+                p.fillRect(QRect(int(a - ox), int(y - oy), max(1, int(b - a)), 2), scan)
         for q in w.platforms:
             c = QColor(self.COLORS.get(q.row, "#4dd0ff"))
             c.setAlpha(190)

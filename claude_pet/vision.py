@@ -98,7 +98,12 @@ def _merge(runs):
 
 def platforms_around(cx, cy, w, h, exclude_global=()):
     """Plattformen [(y, x0, x1)] in globalen Koordinaten für den Ausschnitt um (cx, cy)."""
-    res = grab(int(cx - w / 2), int(cy - h * 0.6), int(w), int(h))
+    return platforms_in_rect(int(cx - w / 2), int(cy - h * 0.6), int(w), int(h), exclude_global)
+
+
+def platforms_in_rect(x, y, w, h, exclude_global=()):
+    """Plattformen [(y, x0, x1)] in globalen Koordinaten für ein Bildschirm-Rechteck."""
+    res = grab(int(x), int(y), int(w), int(h))
     if res is None:
         return []
     gray, ox, oy = res

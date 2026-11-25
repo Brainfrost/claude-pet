@@ -57,6 +57,17 @@ def single_instance(name="Local\\claude-pet-single-instance"):
     return ctypes.get_last_error() != 183  # ERROR_ALREADY_EXISTS
 
 
+WDA_EXCLUDEFROMCAPTURE = 0x11
+
+
+def exclude_from_capture(hwnd):
+    """Fenster erscheint nicht in Bildschirmaufnahmen (auch nicht in unserer Bildanalyse)."""
+    try:
+        user32.SetWindowDisplayAffinity(wt.HWND(hwnd), WDA_EXCLUDEFROMCAPTURE)
+    except (AttributeError, OSError):
+        pass
+
+
 def add_exstyle(hwnd, flags):
     cur = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
     user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, cur | flags)
