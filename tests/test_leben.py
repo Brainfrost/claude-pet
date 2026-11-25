@@ -84,7 +84,6 @@ def test_exhausted_pet_takes_a_nap_and_tired_pet_barely_jumps():
     random.seed(4)
     w = _world()
     pet = Pet(creatures.get("schleim"), "jung", "verspielt")
-    brain = Brain(pet, "verspielt")
     for _ in range(120):
         pet.on_world(w)
         pet.step(1 / 60, w, floor, VB, (0, 0))
@@ -94,21 +93,46 @@ def test_exhausted_pet_takes_a_nap_and_tired_pet_barely_jumps():
     pet.state, pet.timer = "idle", 0
     pet._decide(w)
     assert pet.state == "sleep" and pet.timer > 60, "erschöpft -> Nickerchen"
-    # müde: deutlich weniger Sprünge als frisch
-    def jumps(energy):
-        random.seed(9)
-        pet.energy, pet.state, pet.timer = energy, "idle", 0
-        n, prev = 0, None
-        for f in range(60 * 120):
-            pet.energy = energy                      # Energie für den Vergleich festhalten
+    # müde: will deutlich seltener springen als frisch (400 Entscheidungen je Zustand)
+    middle = next(q for q in w.platforms if q.row == 4)
+
+    def jump_rate(energy):
+        random.seed(11)
+        n = 0
+        for _ in range(400):
+            pet.x, pet.y, pet.support, pet.pane = (middle.x0 + middle.x1) / 2, middle.y, middle, 0
+            pet.state, pet.energy, pet.want_adventure = "idle", energy, False
+            pet._decide(w)
+            n += pet.state == "jump"
+        return n / 400
+    assert jump_rate(30) < jump_rate(95) * 0.5
+
+
+def test_pet_coming_out_of_a_tab_jumps_into_the_text_and_does_not_stick_to_the_top():
+    """Regression: aus dem Tab gekommen, blieb es oben auf der ersten Zeile stehen."""
+    A = [("● " if i % 3 == 0 else "  ") + "Text in Tab A " * 4 for i in range(26)]
+    B = [("● " if i % 3 == 0 else "  ") + "Inhalt von Tab B " * 4 for i in range(26)]
+    top_share = []
+    for seed in range(4):
+        random.seed(seed)
+        w = World()
+        pet = Pet(creatures.get("geist"), "jung", "verspielt")
+        brain = Brain(pet, "verspielt")
+        active = [0]
+        on_top, samples = 0, 0
+        for f in range(60 * 75):
             if f % 4 == 0:
-                w.update(make_snapshot(["x" * 70] * 8, rows=20))
+                w.update(make_snapshot(A if active[0] == 0 else B, active=active[0], n_tabs=2, rows=30))
                 brain.on_world(w)
                 pet.on_world(w)
+            if f == 60 * 5:
+                assert brain.hide_somewhere(w)
+            if f == 60 * 15:
+                active[0] = 1                            # du folgst ihm in Tab B
             brain.tick(1 / 60, w, (5000, 5000))
             pet.step(1 / 60, w, floor, VB, (5000, 5000))
-            if pet.state == "jump" and prev != "jump":
-                n += 1
-            prev = pet.state
-        return n
-    assert jumps(30) < jumps(95) * 0.5
+            if f >= 60 * 18 and pet.grounded:
+                samples += 1
+                on_top += pet.support.row <= 1
+        top_share.append(on_top / max(1, samples))
+    assert sum(top_share) / len(top_share) < 0.35, top_share

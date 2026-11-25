@@ -72,6 +72,7 @@ class Pet:
         self.spin = 0.0             # Purzelbaum: Fortschritt der Drehung (0..1), 0 = aus
         self.spin_rate = 2.2        # Umdrehungen pro Sekunde, passend zur Flugzeit
         self.ignore_y = None        # beim Sprung nach unten: durch die eigene Ebene hindurchfallen
+        self.pass_until_y = None    # beim Sprung in den Text: alle Ebenen oberhalb davon ignorieren
         self.double_hop = False     # Doppelsprung: zweiter Hüpfer steht noch aus
         self.want_adventure = False # möchte zu einem anderen Fenster springen (Controller sucht Ziel)
         self.vision_grace = 0       # Bildanalyse hat die Kante kurz verloren: so oft noch tolerieren
@@ -199,6 +200,7 @@ class Pet:
 
     # ------------------------------------------------------------ Nutzer-Interaktion
     def grab(self):
+        self.pass_until_y = None
         self.state = "held"
         self.support = None
         self.busy = False
@@ -471,15 +473,26 @@ class Pet:
             self._start_fall(0, 0)
 
     def drop_down(self, world):
-        """Von der Tab-Leiste hinunter auf den Text."""
+        """Aus dem Tab-Reiter hinein in den Text springen – mitten hinein (mittlerer bis unterer
+        Bereich), nicht auf die oberste Zeile, wo es sonst hängen blieb."""
         p = self.support
+        pane = p.pane if p is not None and p.pane >= 0 else (self.pane or 0)
+        r = world.pane_rect(pane)
         cands = [q for q in world.platforms
-                 if q.pane == (p.pane if p else 0) and q.row >= 0 and q.x1 - q.x0 > self.px * 4
-                 and abs((q.x0 + q.x1) / 2 - self.x) < 8 * self.W]
+                 if q.pane == pane and q.row >= 0 and q.x1 - q.x0 > self.W
+                 and abs((q.x0 + q.x1) / 2 - self.x) < 14 * self.W]
+        if r:
+            h = r[3] - r[1]
+            middle = [q for q in cands if r[1] + 0.3 * h <= q.y <= r[1] + 0.85 * h]
+            cands = middle or cands
         if cands:
-            q = min(cands, key=lambda q: q.y + random.uniform(0, 4 * self.line_h))
-            tx = min(max(self.x, q.x0 + self.px), q.x1 - self.px)
-            self._ballistic_to(tx, q.y, apex=0.4 * self.line_h)
+            q = random.choice(cands)
+            tx = min(max(self.x, q.x0 + self.W / 2), q.x1 - self.W / 2)
+            if abs(q.y - self.y) > 12 * self.line_h:
+                self.leap_to(tx, q.y)
+            else:
+                self._ballistic_to(tx, q.y, apex=0.4 * self.line_h)
+            self.pass_until_y = q.y - 2               # nicht schon oben auf einer Zeile hängenbleiben
         else:
             self._start_fall(self.facing * self.WALK, -100 * self.S)
 
@@ -585,6 +598,8 @@ class Pet:
             if self.ignore_y is not None and self.y > self.ignore_y + 3:
                 self.ignore_y = None
             p = world.landing(nx, self.y, ny, self.tol, skip_y=self.ignore_y)
+            if p is not None and self.pass_until_y is not None and p.y < self.pass_until_y:
+                p = None                              # noch nicht am Ziel: weiterfallen
             floor = screen_floor(nx)
             if p is None and ny >= floor:
                 p = Platform(nx - 10 ** 6, nx + 10 ** 6, floor, -1, ROW_SCREEN)
@@ -598,6 +613,7 @@ class Pet:
         impact = self.vy
         self.double_hop = False
         self.ignore_y = None
+        self.pass_until_y = None
         self.y = p.y
         self.vx = self.vy = 0.0
         self.support = p
@@ -706,8 +722,11 @@ class Pet:
                 lo, hi = lo - 2 * self.W, hi + 2 * self.W
             self.walk_to(random.uniform(lo, hi) if hi > lo else (lo + hi) / 2)
         elif r < w_walk + w_jump:
-            up = random.random() < 0.65
-            if not self._jump_to_other(world, up=up):
+            # je weiter oben, desto eher nach unten; findet eine Richtung kein Ziel, die andere
+            rect = world.pane_rect(p.pane) if p.pane >= 0 else None
+            frac = (p.y - rect[1]) / max(1, rect[3] - rect[1]) if rect else 0.5
+            up = random.random() < min(0.65, max(0.1, frac))
+            if not self._jump_to_other(world, up=up) and not self._jump_to_other(world, up=not up):
                 self.timer = random.uniform(*tr["idle"])
         elif r < w_walk + w_jump + w_sit:
             self.state, self.timer = "sit", random.uniform(5, 14)
