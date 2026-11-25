@@ -77,7 +77,8 @@ class Controller:
         now = time.perf_counter()
         self._last = self._last_save = now
         self._vis_check = self._win_check = self._vision_check = self._quiet_check = 0.0
-        self._debug_t = self._log_t = 0.0
+        self._debug_t = self._log_t = self._hover_t = 0.0
+        self._hover_word = None
         self._interval = 16
 
         self.watcher = TerminalWatcher()
@@ -95,6 +96,8 @@ class Controller:
         self.timer.timeout.connect(self.tick)
         self.timer.start(self._interval)
         self.tray = Tray(self)
+        if not self.prof.get("lines"):
+            self.speech.invent_lines(self.prof, self.on_lines)
         if fresh:
             QTimer.singleShot(2500, lambda: self._say(f"Hallo! Ich bin {self.prof['name']}. Schön, dass du mich adoptiert hast!"))
 
@@ -125,6 +128,29 @@ class Controller:
         path = profile.archive("Entwicklung: zurückgesetzt")
         log.info("Pet archiviert: %s", path)
         self.quit()
+
+    def on_lines(self, lines):
+        """Persönlicher Spruch-Satz von Haiku – einmalig, danach gratis und offline."""
+        self.prof["lines"] = lines
+        profile.save(self.prof)
+        log.info("Persönliche Sprüche für %s: %d Anlässe", self.prof["name"], len(lines))
+
+    def _hover(self, now, cursor):
+        """Mauszeiger ruht auf einem Wort im Terminal -> das Pet reagiert (selten auch mit Haiku)."""
+        if now - self._hover_t < 0.25:
+            return
+        self._hover_t = now
+        if self.brain.cursor_still_t < 1.0:
+            if self.brain.cursor_still_t < 0.2:
+                self._hover_word = None
+            return
+        hit = self.world.word_at(*cursor)
+        if hit is None or hit[0] == self._hover_word:
+            return
+        word, x, plat = hit
+        self._hover_word = word
+        if self.brain.hovered(word, x, plat, self.world) and random.random() < 0.12:
+            self.speech.on_event("hover", self.world, plat.pane, detail=word)
 
     def on_persona(self, text):
         if not text:
@@ -416,6 +442,8 @@ class Controller:
             profile.save(self.prof)
 
         self._tick_daily(now)
+        if self.world.ok:
+            self._hover(now, cursor)
         self.brain.tick(dt, self.world, cursor)
         pet.step(dt, self.world, self.screen_floor, self.vbounds(), cursor)
         self._tick_ball(dt)

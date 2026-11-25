@@ -39,6 +39,7 @@ EVENTS = {
     "idle": "Nichts Besonderes passiert. Du schaust dir an, was gerade im Terminal steht.",
     "commit": "Dein Mensch hat gerade Code committet (git commit). Feier das!",
     "push": "Dein Mensch hat gerade Code hochgeladen (git push). Feier das!",
+    "hover": "Dein Mensch zeigt gerade mit der Maus auf das Wort «{detail}». Reagiere darauf.",
 }
 
 CANNED = {
@@ -130,6 +131,31 @@ def mask(text):
     return text
 
 
+_PROMPT = re.compile(r"^\s*❯")
+_SEPARATOR = re.compile(r"^[\s─━═]{10,}$")
+
+
+def content_rows(rows):
+    """Zeilen ohne das Eingabefeld von Claude Code: alles ab der Trennlinie über der Eingabezeile (❯)
+    wird abgeschnitten – das Pet liest nie mit, was du gerade tippst."""
+    for i in range(len(rows) - 1, max(-1, len(rows) - 16), -1):
+        if _PROMPT.match(rows[i]):
+            cut = i
+            for j in range(i - 1, max(-1, i - 4), -1):
+                if _SEPARATOR.match(rows[j]):
+                    cut = j
+                    break
+            return rows[:cut]
+    return rows
+
+
+def fill(line, **values):
+    """Platzhalter {word}/{today}/{hours} ersetzen, ohne über andere Klammern zu stolpern."""
+    for k, v in values.items():
+        line = line.replace("{" + k + "}", str(v))
+    return line
+
+
 def is_content(line):
     s = line.strip()
     return len(s) >= 3 and not _CHROME.search(line)
@@ -139,7 +165,7 @@ def context_from(world, pane=0, max_lines=30, max_chars=2400):
     if not world.ok or not world.snap.panes:
         return ""
     pane = min(pane or 0, len(world.snap.panes) - 1)
-    rows = [t.rstrip() for _, t in world.snap.panes[pane].lines]
+    rows = content_rows([t.rstrip() for _, t in world.snap.panes[pane].lines])
     rows = [r for r in rows if is_content(r)]
     text = "\n".join(rows[-max_lines:])
     return mask(text)[-max_chars:]
@@ -163,6 +189,31 @@ def _parse(out):
     return line, "nichts", ""
 
 
+_REQUIRED = {"eat": ("{word}",), "break": ("{hours}",)}
+
+
+def parse_lines(out):
+    """Haiku-Antwort für den Spruch-Satz prüfen: nur bekannte Anlässe, kurze Texte, nötige Platzhalter."""
+    m = re.search(r"\{.*\}", out, re.S)
+    if not m:
+        return None
+    try:
+        data = json.loads(m.group(0))
+    except ValueError:
+        return None
+    result = {}
+    for kind in personas.LINE_KINDS:
+        items = data.get(kind)
+        if not isinstance(items, list):
+            continue
+        need = _REQUIRED.get(kind, ())
+        good = [s.strip() for s in items if isinstance(s, str) and 0 < len(s.strip()) <= 90
+                and all(n in s for n in need)]
+        if good:
+            result[kind] = good[:4]
+    return result if len(result) >= len(personas.LINE_KINDS) - 2 else None
+
+
 def _clean_env():
     env = QProcessEnvironment.systemEnvironment()
     for k in list(env.keys()):
@@ -181,6 +232,7 @@ class Speech(QObject):
         self.prof = prof
         self.rates = RATES.get(prof["personality"], RATES["neugierig"])
         self.history = deque()
+        self.recent = deque(maxlen=8)          # zuletzt gesagt – damit es sich nicht wiederholt
         self.last_llm = 0.0
         self.last_canned = 0.0
         self.busy = False
@@ -208,13 +260,17 @@ class Speech(QObject):
         now = time.time()
         if self.muted:
             return
-        lines = CANNED.get(kind, {}).get(self.prof["personality"])
+        own = (self.prof.get("lines") or {}).get(kind)          # persönlicher Spruch-Satz des Pets
+        lines = own or CANNED.get(kind, {}).get(self.prof["personality"])
         if not lines:
             return
         if not force and (now - self.last_canned < 25 or random.random() > 0.4):
             return
         self.last_canned = now
-        self.said.emit(random.choice(lines).format(**values))
+        fresh = [l for l in lines if fill(l, **values) not in self.recent] or lines
+        text = fill(random.choice(fresh), **values)
+        self.recent.append(text)
+        self.said.emit(text)
 
     def on_event(self, kind, world, pane=0, detail="", new_text="", force=False):
         """Bei einem Anlass vielleicht reagieren (Haiku). True, wenn angefragt."""
@@ -249,6 +305,22 @@ class Speech(QObject):
         self.invent_persona(prof, lambda text, b=prof.get("born"):
                             self.persona_ready.emit(text) if self.prof.get("born") == b else None)
 
+    def invent_lines(self, prof, callback):
+        """Haiku schreibt einmalig den persönlichen Spruch-Satz des Pets; callback(dict) bei Erfolg."""
+        if not self.exe:
+            return False
+        system, user = personas.lines_prompt(prof)
+        self._run(user, system=system, on_out=lambda out: self._lines_done(out, callback), count=False)
+        return True
+
+    @staticmethod
+    def _lines_done(out, callback):
+        lines = parse_lines(out)
+        if lines:
+            callback(lines)
+        else:
+            log.warning("Spruch-Satz nicht verwertbar: %s", out[:200])
+
     def invent_persona(self, prof, callback):
         """Haiku erfindet eine Persönlichkeit und ruft callback(text) auf. False ohne claude-CLI."""
         if not self.exe:
@@ -275,6 +347,9 @@ class Speech(QObject):
         if new_text:
             parts.append(f"Neu erschienener Text:\n{new_text}")
         parts.append(f"Sichtbarer Terminal-Ausschnitt (zur Orientierung):\n{ctx}")
+        if self.recent:
+            parts.append("Deine letzten Sprüche (nichts davon wiederholen):\n"
+                         + "\n".join(f"- {r}" for r in self.recent))
         user = "\n\n".join(parts) + "\n\nDeine Reaktion als JSON:"
         log.info("Haiku gefragt (%s), %d/%d diese Stunde", kind, len(self.history) + 1, self.rates["per_hour"])
         return self._run(user, system=personas.system_prompt(self.prof),
@@ -286,7 +361,9 @@ class Speech(QObject):
             say = say[:117].rsplit(" ", 1)[0] + "…"
         log.info("Haiku (%s): %s [%s %s]", kind, say, act, target)
         if say:
-            self.said.emit(say.strip('"„“»«'))
+            say = say.strip('"„“»«')
+            self.recent.append(say)
+            self.said.emit(say)
         if act != "nichts":
             self.acted.emit(act, target)
 

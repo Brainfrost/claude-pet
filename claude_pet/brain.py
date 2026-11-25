@@ -134,6 +134,40 @@ class Brain:
         self.home, self.goal = self._ref(world, i), None
         return True
 
+    SCARY = re.compile(r"^(error|errors|fehler|exception|failed|fatal|crash|warning|traceback)$", re.I)
+
+    def hovered(self, word, x, plat, world):
+        """Der Mauszeiger ruht auf einem Wort im Terminal: je nach Charakter hinschauen, hinlaufen,
+        draufspringen, nervös werden – oder es fressen gehen."""
+        pet = self.pet
+        if (self.goal or pet.busy or pet.state in ("hidden", "held", "cling", "sleep")
+                or not pet.grounded or pet.pane is None or plat.pane != pet.pane):
+            return False
+        pet.facing = 1 if x > pet.x else -1
+        if FOOD.fullmatch(word):
+            start = plat.text.find(word)
+            if start >= 0:
+                self.set_goal(("eat", plat.text, plat.row, start, word))
+                return True
+        p = self.pers
+        if p == "neugierig":
+            pet._effect("?", life=0.9)
+            self.set_goal(None)
+            if abs(plat.y - pet.y) < 2:
+                pet.walk_to(x, run=1.3)
+            else:
+                pet.go_to_word(word, world)
+        elif p == "verspielt":
+            pet._effect("!", life=0.6)
+            pet._ballistic_to(x, plat.y, apex=1.2 * pet.line_h)      # draufspringen
+        elif p == "aengstlich":
+            if self.SCARY.match(word):
+                pet._effect("!", life=0.9)
+                pet.walk_to(pet.x - pet.facing * 4 * pet.W, run=2.4)
+        elif p == "faul" and random.random() < 0.3:
+            pet._effect("…", life=1.0)
+        return True
+
     def hide_somewhere(self, world):
         """Von Haiku gewünscht: sich in einem anderen (am liebsten ruhigen) Tab verstecken."""
         if self.goal or self.pet.state in ("hidden", "held", "cling") or not world.ok:

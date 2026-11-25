@@ -39,7 +39,7 @@ Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 48 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 53 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 

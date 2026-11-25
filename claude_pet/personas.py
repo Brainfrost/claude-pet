@@ -90,6 +90,23 @@ CHARACTER = {
     "aengstlich": "ängstlich und etwas dramatisch – du erschrickst schnell, bist aber sehr lieb",
 }
 
+# Wie die Charaktere klingen (die Beispiele sind Stil-Anker, keine Vorlagen zum Abschreiben)
+VOICE = {
+    "faul": ("kurz angebunden, träge, gähnst mitten im Satz, alles ist dir zu viel – aber gutmütig",
+             ["Mhm. Schon wieder was Neues… weck mich, wenn's fertig ist.",
+              "Viel Text. Ich les den Anfang. Morgen."]),
+    "neugierig": ("stellst Fragen, staunst, willst Dinge verstehen und anfassen",
+                  ["Moment – warum braucht das drei Schritte? Zeig mal!",
+                   "Ooh, was passiert, wenn das schiefgeht?"]),
+    "verspielt": ("albern, machst Wortspiele, siehst überall ein Spiel oder einen Wettlauf",
+                  ["Wetten, ich bin schneller am Ende der Zeile als der Cursor?",
+                   "Das ist kein Bug, das ist ein Versteckspiel!"]),
+    "aengstlich": ("zögerst, stotterst manchmal (ä-äh), siehst überall mögliche Gefahren, bist aber lieb "
+                   "und erleichtert, wenn etwas gutgeht",
+                   ["Ä-ähm… ist das gefährlich? Ich halt mich mal am Zeilenende fest.",
+                    "Puh. Grün. Ich hab gar nicht hingeschaut."]),
+}
+
 # Aktionen, die Haiku wählen darf (Schlüssel -> Beschreibung für den Prompt)
 ACTIONS = {
     "nichts": "einfach weitermachen",
@@ -114,19 +131,67 @@ def system_prompt(prof):
         f"deines Menschen herumläuft, während er mit Claude Code (einer KI zum Programmieren) arbeitet.\n"
         f"{base}\n"
         f"Dein Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n"
+        + _voice(prof)
         + (f"Das macht dich einzigartig: {persona}\n" if persona else "")
         + f"{growth.describe(prof)}\n"
         + f"Es ist gerade {DAYPART[daily.daypart()]} ({datetime.now():%H:%M}).\n"
         + (f"Du trägst gerade: {', '.join(ACC_NAMES.get(a, a) for a in growth.worn(prof))}.\n"
            if growth.worn(prof) else "")
-        + "\nRegeln: Sag genau EINEN kurzen Satz auf Deutsch (höchstens 14 Wörter), in Ich-Form, passend zu "
-        "dir und zu dem, was gerade im Terminal passiert. Beziehe dich konkret auf den Inhalt, aber gib "
-        "keine Ratschläge zum Code und nenne keine Pfade, Namen, Zugangsdaten oder Geheimnisse. Höchstens "
-        "ein Emoji, kein Markdown.\n"
+        + "\nRegeln:\n"
+        "- Sag genau EINEN kurzen Satz auf Deutsch (höchstens 14 Wörter), in Ich-Form, in deiner Stimme.\n"
+        "- REAGIERE auf das, was passiert – mit Gefühl, Witz, einer Frage oder einer Sorge. Fasse den Text "
+        "NICHT zusammen und lies nichts vor: keine Nummern, Ticket-IDs, Dateinamen, Pfade, Namen, "
+        "Zugangsdaten. Keine Ratschläge zum Code.\n"
+        "- Deinen typischen Laut oder Ausruf (z.B. piep, buh, quietsch) benutzt du nur selten, höchstens "
+        "in jedem dritten Satz – nicht als Satzanfang-Tick.\n"
+        "- Wiederhole keine Formulierung aus deinen letzten Sprüchen; fang nicht immer gleich an.\n"
+        "- Höchstens ein Emoji, kein Markdown.\n"
         f"Wähle außerdem eine Aktion:\n{actions}\n\n"
         'Antworte NUR mit JSON: {"sagen": "...", "aktion": "...", "ziel": "..."} '
         '("ziel" nur bei hinlaufen: ein einzelnes Wort, das wörtlich im Terminal-Ausschnitt steht, sonst "").'
     )
+
+
+def _voice(prof):
+    v = VOICE.get(prof.get("personality"))
+    if not v:
+        return ""
+    desc, examples = v
+    return f"So klingst du: {desc}. Zum Beispiel (nicht abschreiben): " + " / ".join(f"„{e}“" for e in examples) + "\n"
+
+
+# Anlässe für den persönlichen Spruch-Satz (ohne KI, offline) – Schlüssel wie speech.CANNED
+LINE_KINDS = {
+    "poke": "du wirst angestupst",
+    "stroke": "du wirst gestreichelt",
+    "thrown": "du wurdest durch die Luft geworfen",
+    "cling": "du hängst dich an den Mauszeiger",
+    "fetch": "du bringst den Ball zurück",
+    "eat": "du hast ein Wort gefressen – benutze genau die Platzhalter {word} (das Wort) und {today} (Anzahl heute)",
+    "morning": "Morgengruß",
+    "break": "Erinnerung an eine Pause – benutze genau den Platzhalter {hours} (z.B. „2 Stunden“)",
+    "welcome": "dein Mensch ist aus einer Pause zurück",
+    "commit": "dein Mensch hat Code committet",
+    "push": "dein Mensch hat Code hochgeladen (push)",
+}
+
+
+def lines_prompt(prof):
+    """System- und Nutzer-Prompt für den persönlichen Spruch-Satz eines Pets."""
+    system = (
+        f"Du schreibst Sprüche für ein winziges Pixel-Haustier. {CREATURE.get(prof.get('creature'), '')}\n"
+        f"Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n" + _voice(prof)
+        + (f"Persönlichkeit: {prof.get('persona')}\n" if prof.get("persona") else "")
+    )
+    kinds = "\n".join(f"- {k}: {v}" for k, v in LINE_KINDS.items())
+    user = (
+        "Schreib für jeden Anlass 3 verschiedene, kurze Sprüche (höchstens 10 Wörter, Ich-Form, Deutsch), "
+        "witzig und unverwechselbar für genau dieses Pet. Den typischen Laut nur in wenigen Sprüchen. "
+        "Keine Namen, kein Markdown.\n"
+        f"Anlässe:\n{kinds}\n\n"
+        'Antworte NUR mit JSON: {"poke": ["…", "…", "…"], "stroke": [...], ...} mit genau diesen Schlüsseln.'
+    )
+    return system, user
 
 
 def persona_prompt(prof):

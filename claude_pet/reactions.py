@@ -10,7 +10,7 @@ import time
 from collections import deque
 
 from .brain import FOOD, tab_key
-from .speech import is_content
+from .speech import content_rows, is_content
 
 log = logging.getLogger(__name__)
 
@@ -91,15 +91,18 @@ class Reactions:
             if shift is None:
                 self.buffer.clear()                 # Tab gewechselt / Bildschirm neu
             if self.primed and shift is not None:
+                visible = set(content_rows(rows))     # ohne Eingabefeld (was du gerade tippst)
                 for line in new:
-                    if is_content(line):
-                        self.buffer.append(line.rstrip())
-                    if FOOD.search(line):
-                        brain.food_urge = True        # neues Futter: bald hingehen
-                    if GIT_PUSH.search(line):
-                        events.append(("push", line.strip()))
-                    elif GIT_COMMIT.search(line):
-                        events.append(("commit", line.strip()))
+                    typed = line not in visible
+                    if not typed:
+                        if is_content(line):
+                            self.buffer.append(line.rstrip())
+                        if FOOD.search(line):
+                            brain.food_urge = True    # neues Futter: bald hingehen
+                        if GIT_PUSH.search(line):
+                            events.append(("push", line.strip()))
+                        elif GIT_COMMIT.search(line):
+                            events.append(("commit", line.strip()))
                     if CODE_LINE.match(line):
                         continue
                     s = line.strip()

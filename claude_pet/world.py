@@ -27,6 +27,7 @@ class Platform:
 
 _SEG = re.compile(r"[^\s](?:[^\s]|\s{1,%d}(?=[^\s]))*" % (GAP_CELLS - 1))
 _seg_cache = {}
+_WORD = re.compile(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9_\-]{2,}")
 
 
 def segments(text, gap=GAP_CELLS):
@@ -173,6 +174,27 @@ class World:
             l, tp, r, b = t.rect
             if l <= x < r and tp <= y < b:
                 return i
+        return None
+
+    def word_at(self, x, y):
+        """Wort im Terminal unter (x, y): (wort, mitte_x, plattform) oder None."""
+        pi = self.pane_at(x, y)
+        if pi is None:
+            return None
+        pane = self.snap.panes[pi]
+        if not pane.lines:
+            return None
+        row = int((y - pane.lines[0][0]) // pane.line_h)
+        if not 0 <= row < len(pane.lines):
+            return None
+        col = int((x - pane.x0) // pane.cell_w)
+        for m in _WORD.finditer(pane.lines[row][1]):
+            if m.start() <= col < m.end():
+                plat = self.platform_in_row(pi, row, x, pane.cell_w)
+                if plat is None:
+                    return None
+                cx = pane.x0 + (m.start() + m.end()) / 2 * pane.cell_w
+                return m.group(0), cx, plat
         return None
 
     def platform_in_row(self, pane, row, x, tol):
