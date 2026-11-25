@@ -1,0 +1,128 @@
+"""Erkennt, was in den Sessions passiert, und lässt das Pet (und seine Sprechblase) reagieren.
+
+Quellen:
+  - Tab-Titel: Wechsel zwischen 'working' (Spinner) und 'idle' (✳) -> start / done
+  - neu erscheinender Text im sichtbaren Pane -> error / success / attention
+"""
+import logging
+import re
+import time
+from collections import deque
+
+from .brain import tab_key
+from .speech import is_content
+
+log = logging.getLogger(__name__)
+
+# Zeilen aus Code-Listings/Diffs ("  73 +   except Exception:") nicht als Meldung werten
+CODE_LINE = re.compile(r"^\s*\d+\s*[+\-]?\s")
+ERROR = re.compile(
+    r"(^\s*(⎿\s*)?(error|fatal|fehler)\b"
+    r"|\b\w*(error|exception):\s"
+    r"|traceback \(most recent call last\)"
+    r"|\bfailed\b|\bFAILED\b|fehlgeschlagen"
+    r"|exit code [1-9]"
+    r"|[✗✘❌])", re.I)
+SUCCESS = re.compile(
+    r"([✓✔✅]|\b\d+ passed\b|\ball tests pass|\bsuccessfully\b|\berfolgreich\b|\bbuild succeeded\b)", re.I)
+ATTENTION = re.compile(
+    r"(do you want to|möchtest du|❯\s*1\.\s*yes|enter to select|esc to cancel|\(y/n\))", re.I)
+
+COOLDOWN = {"error": 25, "success": 25, "attention": 40, "done": 15, "start": 20}
+
+NL = chr(10)
+CONTENT_CHARS = 500    # so viel neuer Text, bevor das Pet den Inhalt kommentiert
+BUFFER_LINES = 60
+
+
+class Reactions:
+    def __init__(self, ctl):
+        self.ctl = ctl
+        self.seen = set()
+        self.seen_order = deque()
+        self.tab_states = {}
+        self.last = {}
+        self.primed = False
+        self.buffer = deque(maxlen=BUFFER_LINES)   # neu erschienener Inhalt seit dem letzten Kommentar
+
+    def _remember(self, line):
+        if line in self.seen:
+            return
+        self.seen.add(line)
+        self.seen_order.append(line)
+        while len(self.seen_order) > 800:
+            self.seen.discard(self.seen_order.popleft())
+
+    def on_world(self, world):
+        if not world.ok:
+            return
+        pet, brain = self.ctl.pet, self.ctl.brain
+        snap = world.snap
+        events = []
+
+        # --- Session-Zustand aus den Tab-Titeln
+        home_key = brain.home[0] if brain.home else None
+        states = {}
+        for t in snap.tabs:
+            k = tab_key(t)
+            states[k] = t.state
+            prev = self.tab_states.get(k)
+            relevant = k == home_key or t.selected
+            if prev and prev != t.state and relevant:
+                if prev == "working" and t.state == "idle":
+                    events.append(("done", ""))
+                elif prev == "idle" and t.state == "working":
+                    events.append(("start", ""))
+        self.tab_states = states
+
+        # --- neuer Text im Pane, in dem das Pet ist
+        pi = pet.pane if pet.pane is not None else 0
+        if pi < len(snap.panes):
+            rows = [t.rstrip() for _, t in snap.panes[pi].lines]
+            shift = world.shifts[pi] if pi < len(world.shifts) else None
+            new = [r for r in rows if r.strip() and r not in self.seen]
+            for r in rows:
+                self._remember(r)
+            if shift is None:
+                self.buffer.clear()                 # Tab gewechselt / Bildschirm neu
+            if self.primed and shift is not None:
+                for line in new:
+                    if is_content(line):
+                        self.buffer.append(line.rstrip())
+                    if CODE_LINE.match(line):
+                        continue
+                    s = line.strip()
+                    if ATTENTION.search(s):
+                        events.append(("attention", s))
+                    elif ERROR.search(s):
+                        events.append(("error", s))
+                    elif SUCCESS.search(s):
+                        events.append(("success", s))
+        self.primed = True
+
+        visible = pet.state != "hidden" and pet.pane is not None
+        if not visible:
+            return
+        speech = self.ctl.speech
+        done_kinds = set()
+        for kind, detail in events:
+            if kind in done_kinds:
+                continue
+            now = time.time()
+            if now - self.last.get(kind, 0) < COOLDOWN.get(kind, 20):
+                continue
+            self.last[kind] = now
+            done_kinds.add(kind)
+            log.info("Ereignis %s: %s", kind, detail[:80])
+            pet.react(kind)
+            self.ctl.interact(kind)
+            new_text = NL.join(self.buffer) if kind == "done" else ""
+            if speech.on_event(kind, world, pi, detail, new_text=new_text) and new_text:
+                self.buffer.clear()
+        # --- laufend mitlesen: genug neuer Inhalt beisammen -> kommentieren
+        chars = sum(len(l.strip()) for l in self.buffer)
+        if chars >= CONTENT_CHARS and speech.can_comment():
+            text = NL.join(self.buffer)
+            self.buffer.clear()
+            if speech.on_event("content", world, pi, new_text=text):
+                log.info("Inhalt kommentieren (%d Zeichen)", chars)

@@ -1,0 +1,515 @@
+<title>claude-pet Figurenwahl</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
+<style>
+/* Layout: Kopfzeile, dann die Live-Szene (Terminal mit Tabs) als Herzstück, darunter vier Entwurfskarten im 2-Spalten-Raster (mobil 1 Spalte) */
+:root {
+  --bg: #eceef3;
+  --surface: #ffffff;
+  --panel: #f3f4f8;
+  --fg: #191d27;
+  --muted: #586174;
+  --line: #d3d8e2;
+  --accent: #4a52c4;
+  --accent-ink: #ffffff;
+  --chip: #e3e6ef;
+  --term-bg: #12151c;
+  --term-chrome: #1b1f29;
+  --term-fg: #c9d1dd;
+  --term-dim: #6f7a8e;
+  --term-ok: #7fd99a;
+  --term-err: #ff8080;
+  --term-acc: #a3acff;
+  --f-display: "Silkscreen", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --f-body: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1015; --surface: #171a22; --panel: #1d212b; --fg: #e7eaf1; --muted: #9aa3b5; --line: #2b303c;
+    --accent: #9098ff; --accent-ink: #0e1015; --chip: #252a36;
+    --term-bg: #0a0c11; --term-chrome: #141821; --term-fg: #c9d1dd; --term-dim: #6f7a8e; --term-ok: #7fd99a; --term-err: #ff8080; --term-acc: #a3acff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1015; --surface: #171a22; --panel: #1d212b; --fg: #e7eaf1; --muted: #9aa3b5; --line: #2b303c;
+  --accent: #9098ff; --accent-ink: #0e1015; --chip: #252a36;
+  --term-bg: #0a0c11; --term-chrome: #141821; --term-fg: #c9d1dd; --term-dim: #6f7a8e; --term-ok: #7fd99a; --term-err: #ff8080; --term-acc: #a3acff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.wrap { padding-block: 40px 20px; display: grid; gap: 10px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(26px, 4.4vw, 44px); line-height: 1.1; margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.lede { margin: 0; max-width: 62ch; color: var(--muted); font-size: 16px; }
+h2 { font-family: var(--f-display); font-weight: 400; font-size: 22px; margin: 0; line-height: 1.2; }
+h3 { font-family: var(--f-mono); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+
+/* Szene */
+.scene { padding-block: 8px 28px; display: grid; gap: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--chip); border-radius: 10px; }
+.seg button, .btn {
+  font: 500 13px/1 var(--f-body); color: var(--fg); background: transparent; border: 0; border-radius: 7px;
+  padding: 8px 11px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg button:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.seg button[aria-pressed="true"]:hover { background: var(--surface); }
+.btn { background: var(--accent); color: var(--accent-ink); padding: 9px 14px; border-radius: 8px; }
+.btn.ghost { background: var(--chip); color: var(--fg); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.label-inline { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.term { background: var(--term-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.tabs { display: flex; gap: 2px; background: var(--term-chrome); padding: 6px 8px 0; overflow-x: auto; }
+.tab { font: 12px/1 var(--f-mono); color: var(--term-dim); padding: 9px 14px 10px; border-radius: 8px 8px 0 0; white-space: nowrap; }
+.tab.on { background: var(--term-bg); color: var(--term-fg); }
+#scene { display: block; width: 100%; height: 340px; touch-action: none; cursor: default; }
+.hint { margin: 0; color: var(--muted); font-size: 14px; max-width: 75ch; }
+
+/* Legende */
+.legend { padding-block: 8px 18px; display: grid; gap: 10px; }
+.legend ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 20px; }
+.legend li { font-size: 14px; color: var(--muted); }
+.legend b { color: var(--fg); font-weight: 600; }
+
+/* Karten */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 20px; padding-block: 0 40px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.card-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.num { font: 500 12px/1 var(--f-mono); color: var(--accent-ink); background: var(--accent); padding: 5px 8px; border-radius: 6px; letter-spacing: .04em; }
+.art { font-family: var(--f-mono); font-size: 13px; color: var(--muted); }
+.desc { margin: 0; color: var(--muted); }
+.stage { background: var(--panel); border-radius: 10px; display: grid; justify-items: center; padding: 10px 10px 14px; gap: 10px; }
+.stage canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
+.row { display: grid; gap: 8px; }
+.cells { display: grid; gap: 8px; }
+.cells.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cells.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cell { background: var(--panel); border-radius: 8px; display: grid; justify-items: center; gap: 2px; padding: 6px 4px 8px; min-width: 0; }
+.cell canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
+.cell span { font-size: 12px; color: var(--fg); text-align: center; line-height: 1.3; }
+.cell small { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.3; }
+.card-foot { display: flex; justify-content: flex-end; }
+footer.wrap { padding-block: 0 48px; color: var(--muted); font-size: 14px; }
+footer p { margin: 0; max-width: 75ch; }
+@media (max-width: 560px) {
+  #scene { height: 300px; }
+  .card { padding: 14px; }
+  .cells.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+
+<header class="wrap">
+  <p class="eyebrow">claude-pet · Etappe 1 · Figurenwahl</p>
+  <h1>Wer soll auf deinem Terminal wohnen?</h1>
+  <p class="lede">Acht Entwürfe für das Pet, das auf den Textzeilen von Claude Code herumläuft. Probier sie in der Szene aus, zieh sie mit der Maus herum und sag Claude dann im Terminal, welche Nummer es werden soll.</p>
+</header>
+
+<section class="wrap scene" aria-label="Live-Szene">
+  <div class="controls">
+    <span class="label-inline">Figur</span>
+    <div class="seg" id="pickCreature"></div>
+    <span class="label-inline">Charakter</span>
+    <div class="seg" id="pickVariant"></div>
+    <button class="btn ghost" id="playBtn" type="button">Pause</button>
+  </div>
+  <div class="term">
+    <div class="tabs" aria-hidden="true">
+      <div class="tab">✳ Rechnungen prüfen</div>
+      <div class="tab on">◐ claude-pet bauen</div>
+      <div class="tab">✳ Tests reparieren</div>
+      <div class="tab">✳ Release-Notizen</div>
+    </div>
+    <canvas id="scene" aria-label="Terminal mit laufendem Pet. Die Figur lässt sich mit Maus oder Finger greifen und werfen."></canvas>
+  </div>
+  <p class="hint">Jede Textzeile ist Boden, das Zeilenende eine Kante. Neue Ausgabe schiebt den Text nach oben und trägt die Figur mit. Greif sie und wirf sie. Die neugierige Figur läuft deinem Zeiger nach, die ängstliche dreht an Kanten lieber um.</p>
+</section>
+
+<section class="wrap legend" aria-label="Charaktere">
+  <h3>So unterscheiden sich die Charaktere</h3>
+  <ul>
+    <li><b>Faul</b>: halb geschlossene Augen, gedeckte Farben, schläft viel</li>
+    <li><b>Neugierig</b>: Glanzpunkt in den Augen, folgt dir</li>
+    <li><b>Verspielt</b>: rote Bäckchen, kräftigere Farben, hüpft</li>
+    <li><b>Ängstlich</b>: kleine Pupillen, Schweißtropfen, blasser</li>
+  </ul>
+</section>
+
+<section class="wrap grid" id="cards"></section>
+
+<footer class="wrap">
+  <p>Antworte im Terminal mit der Nummer, gern mit Wünschen, zum Beispiel „Entwurf 3, aber in Grün“. Die Pixelkarten und Regeln stecken als JSON in dieser Seite und werden 1:1 ins Python-Overlay übernommen.</p>
+</footer>
+
+<script type="application/json" id="pet-data">{"version":1,"creatures":[{"id":"katze","num":1,"name":"Tilde","art":"Pixelkatze","w":20,"h":16,"palette":{"o":"#2a1f2d","B":"#e59a4f","L":"#f8dcb0","D":"#a8622b","e":"#2a1f2d","p":"#f08aa0","k":"B","lid":"B","shut":"o","w":"#ffffff"},"frames":{"stand":["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....ooDD..ooDD......","....ooDD..ooDD......"],"walk":[["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....ooDD..ooDD......","...ooDD..ooDD......."],["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....ooDD..ooDD......","....ooDD..ooDD......"],["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....ooDD..ooDD......",".....ooDD..ooDD....."],["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....ooDD..ooDD......","....ooDD..ooDD......"]],"sit":["....................","....................","....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","...oooo...oooo......"],"held":[["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....o.D...o.D.......","....o.D...o.D......."],["....................",".............o...o..","..o.........opo.opo.",".o.........oBBBBBBBo",".o.........oBBBBBBBo",".o.........oBeeBeeBo","..o........oBeeBeeBo","..o........okBBpBBko","...ooooooooBBBBBBBBo","..oBBBBBBBBBBoooooo.","..oBBBLLLLLLBBo.....","..oBBBLLLLLLBBo.....","...oBBBBBBBBBo......","....ooDD..ooDD......","....o.D...o.D.......",".....o.D...o.D......"]]},"walkHop":[0,0,0,0],"breathRow":{"stand":10,"sit":12},"anchors":{"hand":{"x":10,"y":8},"helm":{"x":11,"y":0},"lupe":{"x":16,"y":8},"sweat":{"x":19,"y":1}},"glassColor":"#1d1f27","crt":false},{"id":"schleim","num":2,"name":"Glibber","art":"Schleimwesen","w":16,"h":14,"palette":{"o":"#5a2233","B":"#f2849e","L":"#ffd6df","D":"#c95a74","e":"#3a1420","k":"B","lid":"B","shut":"e","w":"#ffffff"},"frames":{"stand":["................","................","......oooo......","....ooBBBBoo....","...oBBBBBBLLo...","..oBBBBBBBBLLo..","..oBBBBBBBBBBo..",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.",".oDBBBBBBBBBBDo.","..oDDDDDDDDDDo..","...oooooooooo..."],"walk":[["................","................","................","......oooo......","....ooBBBBoo....","...oBBBBBBLLo...","..oBBBBBBBBBBo..",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.",".oDBBBBBBBBBBDo.",".oDDDDDDDDDDDDo.","..oooooooooooo.."],["................","................","......oooo......","....ooBBBBoo....","...oBBBBBBLLo...","..oBBBBBBBBLLo..","..oBBBBBBBBBBo..",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.",".oDBBBBBBBBBBDo.","..oDDDDDDDDDDo..","...oooooooooo..."]],"sit":["................","................","................","................","......oooo......","....ooBBBBoo....","...oBBBBBBLLo...",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.",".oDBBBBBBBBBBDo.",".oDDDDDDDDDDDDo.","..oooooooooooo.."],"held":[["................","......oooo......","....ooBBBBoo....","...oBBBBBBLLo...","..oBBBBBBBBLLo..","..oBBBBBBBBBBo..",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.",".oDBBBBBBBBBBDo.","..oDDDDDDDDDDo..","...oooooooooo...","....DD....DD...."],["................","......oooo......","....ooBBBBoo....","...oBBBBBBLLo...","..oBBBBBBBBLLo..","..oBBBBBBBBBBo..",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.",".oDBBBBBBBBBBDo.","..oDDDDDDDDDDo..","...oooooooooo...",".....DD..DD....."]]},"walkHop":[0,-2],"breathRow":{"stand":6,"sit":11},"anchors":{"hand":{"x":8,"y":2},"helm":{"x":4,"y":0},"lupe":{"x":12,"y":6},"sweat":{"x":13,"y":2}},"glassColor":"#3a1420","crt":false},{"id":"krake","num":3,"name":"Tinte","art":"Mini-Krake","w":16,"h":16,"palette":{"o":"#191c3f","B":"#5b6ee1","L":"#aab6ff","D":"#3d49ad","e":"#0d0f2b","k":"B","lid":"B","shut":"e","w":"#ffffff"},"frames":{"stand":["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.","..o...o..o...o.."],"walk":[["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.","oBo..oBooBo..oBo",".o....o..o....o."],["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.","..o...o..o...o.."],["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.","..oBooBooBooBo..","...o..o..o..o..."],["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.","..o...o..o...o.."]],"sit":["................","................","................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.","oBBo.oBooBo.oBBo",".oo..oo..oo..oo."],"held":[["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.","..o...o..o...o.."],["................",".....oooooo.....","...ooBBBBBBoo...","..oBBBBBBBLLBo..","..oBBBBBBBBLBo..",".oBBBBBBBBBBBBo.",".oBBeeBBBBeeBBo.",".oBBeeBBBBeeBBo.",".oBkBBBBBBBBkBo.",".oBBBBBDDBBBBBo.","..oBBBBBBBBBBo..",".oBBBBBBBBBBBBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.",".oBo.oBooBo.oBo.",".o....o..o....o."]]},"walkHop":[0,-1,0,-1],"breathRow":{"stand":5,"sit":7},"anchors":{"hand":{"x":8,"y":1},"helm":{"x":4,"y":-1},"lupe":{"x":13,"y":7},"sweat":{"x":13,"y":1}},"glassColor":"#eef0ff","crt":false},{"id":"bit","num":4,"name":"Bit","art":"Terminalwesen","w":16,"h":16,"palette":{"o":"#0a1a10","B":"#2e4a36","S":"#07130c","e":"#5dff8f","M":"e","C":"e","k":"S","lid":"S","shut":"e","w":"#e6ffee"},"noTweak":true,"variantPalette":{"faul":{"e":"#ffb000","w":"#fff1c9","B":"#4a3f24"},"neugierig":{},"verspielt":{"e":"#55e6ff","w":"#e6fbff","B":"#24454c"},"aengstlich":{"e":"#c9ffd9","B":"#46584c"}},"frames":{"stand":["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....oo....oo....","....oo....oo...."],"walk":[["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....oo....oo....","...oo......oo..."],["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....oo....oo....","....oo....oo...."],["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....oo....oo....",".....oo..oo....."],["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....oo....oo....","....oo....oo...."]],"sit":["................","................","................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo...."],"held":[["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....o......o....","....o......o...."],["................","..oooooooooooo..",".oBBBBBBBBBBBBo.",".oBSSSSSSSSSSBo.",".oBSSSSSSSSSSBo.",".oBSSeeSSSeeSBo.",".oBSSeeSSSeeSBo.",".oBSSkSSSSSkSBo.",".oBSSSSMMSSCSBo.",".oBSSSSSSSSSSBo.",".oBBBBBBBBBBBBo.","..oooooooooooo..","......oBBo......","....oooooooo....","....o......o....",".....o....o....."]]},"walkHop":[0,0,0,0],"breathRow":{"stand":4,"sit":6},"anchors":{"hand":{"x":8,"y":1},"helm":{"x":4,"y":-2},"lupe":{"x":13,"y":7},"sweat":{"x":14,"y":0}},"glassColor":"#d9ffe5","crt":true},{"id":"spatz","num":5,"name":"Pieps","art":"Spatz","w":16,"h":16,"palette":{"o":"#3b2a1e","B":"#a9744a","L":"#f1e2c8","D":"#6e4529","e":"#22160e","p":"#f0a030","k":"B","lid":"B","shut":"e","w":"#ffffff"},"frames":{"stand":["................","........o.......",".....oooooo.....","....oBBBBBBo....","...oBBBBBBBBo...","...oBeeBBeeBo...","...oBeeBBeeBo...","..oBkBBppBBkBo..","..oDBBBpBBBBDo..",".oDDBLLLLLLBDDo.",".oDDBLLLLLLBDDo.","..oDBLLLLLLBDo..","...oBBLLLLBBo...","....oooooooo....","......p..p......",".....pp.pp......"],"walk":[["................","........o.......",".....oooooo.....","....oBBBBBBo....","...oBBBBBBBBo...","...oBeeBBeeBo...","...oBeeBBeeBo...","..oBkBBppBBkBo..","..oDBBBpBBBBDo..",".oDDBLLLLLLBDDo.",".oDDBLLLLLLBDDo.","..oDBLLLLLLBDo..","...oBBLLLLBBo...","....oooooooo....","......p..p......","....pp....pp...."],["................","........o.......",".....oooooo.....","....oBBBBBBo....","...oBBBBBBBBo...","...oBeeBBeeBo...","...oBeeBBeeBo...","..oBkBBppBBkBo..","..oDBBBpBBBBDo..",".oDDBLLLLLLBDDo.",".oDDBLLLLLLBDDo.","..oDBLLLLLLBDo..","...oBBLLLLBBo...","....oooooooo....","......pppp......","................"]],"sit":["................","................","................","........o.......",".....oooooo.....","....oBBBBBBo....","...oBBBBBBBBo...","...oBeeBBeeBo...","...oBeeBBeeBo...","..oBkBBppBBkBo..","..oDBBBpBBBBDo..",".oDDBLLLLLLBDDo.",".oDDBLLLLLLBDDo.","..oDBLLLLLLBDo..","...oBBLLLLBBo...","....oooooooo...."],"held":[["................","........o.......",".....oooooo.....","....oBBBBBBo....","...oBBBBBBBBo...","...oBeeBBeeBo...","...oBeeBBeeBo...","..oBkBBppBBkBo..",".oDDBBBpBBBBDDo.","oDDDBLLLLLLBDDDo",".oDDBLLLLLLBDDo.","..oDBLLLLLLBDo..","...oBBLLLLBBo...","....oooooooo....","......p..p......","......p..p......"],["................","........o.......",".....oooooo.....","....oBBBBBBo....","...oBBBBBBBBo...","...oBeeBBeeBo...","...oBeeBBeeBo...","..oBkBBppBBkBo..","..oDBBBpBBBBDo..",".oDDBLLLLLLBDDo.","oDDDBLLLLLLBDDDo",".oDDBLLLLLLBDDo.","...oBBLLLLBBo...","....oooooooo....","......p..p......","......p..p......"]]},"walkHop":[0,-3],"breathRow":{"stand":10,"sit":12},"anchors":{"hand":{"x":8,"y":2},"helm":{"x":4,"y":0},"lupe":{"x":12,"y":8},"sweat":{"x":12,"y":2}},"glassColor":"#22160e","crt":false},{"id":"pilz","num":6,"name":"Hütchen","art":"Pilzwesen","w":16,"h":16,"palette":{"o":"#3a1414","B":"#d9453b","L":"#fff4e6","D":"#cfa68c","S":"#f3e3c6","e":"#2a1a12","k":"S","lid":"S","shut":"e","w":"#ffffff"},"frames":{"stand":["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....oo..oo.....",".....oo..oo....."],"walk":[["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....oo..oo.....","....oo....oo...."],["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....oo..oo.....",".....oo..oo....."],["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....oo..oo.....","......oooo......"],["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....oo..oo.....",".....oo..oo....."]],"sit":["................","................","................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo...."],"held":[["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....o....o.....",".....o....o....."],["................",".....oooooo.....","...ooBBLLBBoo...","..oBBBBBBBBLLo..",".oBLLBBBBBBBLBo.",".oBLLBBBLLBBBBo.","oDDDDDDDDDDDDDDo","...oSSSSSSSSo...","...oSeeSSeeSo...","...oSeeSSeeSo...","...okSSooSSko...","...oSSSSSSSSo...","...oSSSSSSSSo...","....oooooooo....",".....o....o.....","......o..o......"]]},"walkHop":[0,-1,0,-1],"breathRow":{"stand":11,"sit":13},"anchors":{"hand":{"x":8,"y":1},"helm":{"x":4,"y":-2},"lupe":{"x":12,"y":9},"sweat":{"x":13,"y":7}},"glassColor":"#2a1a12","crt":false},{"id":"axolotl","num":7,"name":"Kiemchen","art":"Axolotl","w":20,"h":15,"palette":{"o":"#5a2a3a","B":"#f7b6c8","L":"#fde3ea","D":"#e8578a","p":"#e8578a","e":"#2a1420","k":"B","lid":"B","shut":"e","w":"#ffffff"},"frames":{"stand":["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....","......BB....BB......","......oo....oo......"],"walk":[["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....",".....BB......BB.....",".....oo......oo....."],["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....","......BB....BB......","......oo....oo......"],["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....",".......BB..BB.......",".......oo..oo......."],["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....","......BB....BB......","......oo....oo......"]],"sit":["....................","....................","....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo....."],"held":[["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....",".......B....B.......",".......B....B......."],["....................","..p..............p..",".pp..oooooooooo..pp.","..pp.oBBBBBBBBo.pp..","pp..oBBBBBBBBBBo..pp",".ppoBBeeBBBBeeBBopp.","...oBBeeBBBBeeBBo...","..ppoBkBBooBBkBo.pp.","....oBBBBBBBBBBo....",".....oBBLLLLBBo.oo..","....oBBLLLLLLBBoBBo.","....oBBBBBBBBBBoo...",".....oooooooooo.....",".......B....B.......","......B......B......"]]},"walkHop":[0,0,0,0],"breathRow":{"stand":8,"sit":10},"anchors":{"hand":{"x":10,"y":2},"helm":{"x":6,"y":-1},"lupe":{"x":16,"y":8},"sweat":{"x":15,"y":1}},"glassColor":"#5a2a3a","crt":false},{"id":"klammer","num":8,"name":"Klammerich","art":"Klammer-Paar { }","w":18,"h":16,"palette":{"o":"#2a1036","B":"#d77bff","e":"#c45cf0","M":"e","k":"","lid":"","shut":"e","w":"#ffffff"},"frames":{"stand":["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....","....o........o....","...oo........oo..."],"walk":[["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....","...o..........o...","..oo..........oo.."],["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....","....o........o....","...oo........oo..."],["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....",".....o......o.....",".....oo.....oo...."],["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....","....o........o....","...oo........oo..."]],"sit":["..................","..................","..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","...oo........oo..."],"held":[["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....","....o........o....","....o........o...."],["..................","...ooo......ooo...","..oBBo......oBBo..","..oBo........oBo..","..oBo........oBo..",".oBo..ee..ee..oBo.","oBo...ee..ee...oBo",".oBo..k....k..oBo.","..oBo...MM...oBo..","..oBo........oBo..","..oBBo......oBBo..","...ooo......ooo...","....o........o....","....o........o....","....o........o....",".....o......o....."]]},"walkHop":[0,-1,0,-1],"breathRow":{"stand":3,"sit":5},"anchors":{"hand":{"x":4,"y":2},"helm":{"x":5,"y":0},"lupe":{"x":14,"y":7},"sweat":{"x":12,"y":2}},"glassColor":"#9a5cd6","crt":false}],"overlays":{"cheekPink":"#ff7fa6","heart":{"map":["rr.rr","rrrrr",".rrr.","..r.."],"colors":{"r":"#ff5c8a"}},"zzz":{"map":["zzzz","..z.",".z..","zzzz"],"colors":{"z":"#8a93e6"}},"sweat":{"map":[".b","bb","bb"],"colors":{"b":"#7cc7ff"}},"hand":{"map":["..oo..",".oWWo.",".oWWo.",".oWWo.","oWWWWo",".oooo."],"colors":{"o":"#3a2a22","W":"#ffe0c2"}},"helm":{"map":["..oooo..",".oyYyyo.","oyyyyyyo","oooooooo"],"colors":{"o":"#4a3a10","y":"#f5c518","Y":"#fff1a8"}},"lupe":{"map":[".ooo...","ogGgo..","ogggo..",".oooh..","....hh.",".....hh","......h"],"colors":{"o":"#2b2b33","g":"#bfe6ff","G":"#ffffff","h":"#8a5a2b"}},"eggshell":{"shell":"#f4ecd8","outline":"#8b7b5a"}},"variants":{"faul":{"label":"Faul","eyes":"half","tweak":{"h":0,"s":-0.18,"l":-0.06}},"neugierig":{"label":"Neugierig","eyes":"glint","tweak":{"h":0,"s":0,"l":0}},"verspielt":{"label":"Verspielt","eyes":"normal","tweak":{"h":10,"s":0.12,"l":0.03}},"aengstlich":{"label":"Ängstlich","eyes":"small","tweak":{"h":-6,"s":-0.25,"l":0.1}}},"eyeModes":{"normal":["e","e","e","e"],"glint":["w","e","e","e"],"half":["lid","lid","e","e"],"small":["lid","lid","e","lid"],"closed":["lid","lid","shut","shut"],"happy":["shut","shut","lid","lid"]},"rules":{"grid":"Jede Zeile ist ein String, jedes Zeichen ein Pixel. '.' = transparent, sonst Schlüssel in palette. Figuren schauen nach rechts; nach links = horizontal spiegeln. Fußpunkt = Mitte der untersten Rasterzeile.","paletteRefs":"Ein Paletteneintrag mit genau einem Zeichen ist ein Verweis auf einen anderen Schlüssel (z.B. k:'B'). Nach Charakter-Anpassung auflösen. Ein leerer Eintrag ('') bedeutet transparent (Klammerich: Augenlid und Bäckchen unsichtbar).","variantTweak":"Außer bei noTweak: B, L, D in HSL verschieben (h in Grad, s/l additiv, auf 0..1 begrenzt). Danach variantPalette[variant] darüberlegen. Verspielt (und Zustand happy): k = overlays.cheekPink.","eyes":"Augen = jeder 2x2-Block aus 'e'. Modus pro Block über eyeModes ersetzen. Modus: Charakter (variants[v].eyes); Zustand überschreibt: sleep=closed, happy=happy, held/fall=glint (ängstlich: small), Blinzeln im Ruhezustand alle ~3,7 s für 130 ms = closed.","breathing":"In idle/sit/sleep/happy jede zweite Phase (850 ms, Schlaf 1300 ms): Zeile breathRow[stand|sit] löschen und oben eine leere Zeile einfügen.","walk":"walk-Frames alle 150 ms weiter; walkHop[i] = vertikaler Versatz in Rasterpixeln (negativ = hoch).","cursor":"Zeichen 'C' (nur Bit) blinkt: 500 ms an, 500 ms als 'S'.","crt":"crt=true: unter jedes Pixel einen Streifen rgba(0,0,0,.28) mit Höhe max(1, s/4) legen (Scanline).","happy":"Zustand happy: abwechselnd 260 ms um 2 Rasterpixel hochhüpfen, Herzchen über dem Kopf aufsteigen lassen.","held":"Zustand held: held-Frames alle 240 ms wechseln; overlays.hand mit Unterkante-Mitte auf anchors.hand zeichnen (oben links = hand.x-3, hand.y-5). Freier Fall nutzt dieselben Frames ohne Hand.","glasses":"Brille: um jeden Augenblock einen 4x4-Ring (ohne Ecken-Logik, alle Randpixel) in glassColor, dazu eine Brücke in der oberen Augenzeile zwischen beiden Ringen.","helm":"Bauhelm: overlays.helm mit oben links auf anchors.helm.","lupe":"Lupe: overlays.lupe mit oben links auf anchors.lupe.","sweat":"Ängstlich (außer im Schlaf): overlays.sweat bei anchors.sweat, wippt 1 px.","growth":"Baby = Pixelgröße 2 + Eierschale über den unteren 4-5 Zeilen (Zickzack-Kante, overlays.eggshell), Jung = 3, Erwachsen = 4 (bei gleicher Darstellung)."}}</script>
+<script>
+(() => {
+const DATA = JSON.parse(document.getElementById('pet-data').textContent);
+const OV = DATA.overlays;
+const VARIANTS = Object.keys(DATA.variants);
+const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+/* ---------- Farben ---------- */
+function hexToHsl(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b); let h = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) { const d = max - min; s = l > .5 ? d / (2 - max - min) : d / (max + min);
+    h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
+  return [h, s, l];
+}
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360; s = Math.min(1, Math.max(0, s)); l = Math.min(1, Math.max(0, l));
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const to = v => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return '#' + to(r) + to(g) + to(b);
+}
+const palCache = new Map();
+function palette(cr, variant, pink) {
+  const key = cr.id + variant + pink; if (palCache.has(key)) return palCache.get(key);
+  const p = Object.assign({}, cr.palette);
+  const tw = DATA.variants[variant].tweak;
+  if (!cr.noTweak) for (const k of ['B', 'L', 'D']) if (p[k] && p[k].length > 1) { const [h, s, l] = hexToHsl(p[k]); p[k] = hslToHex(h + tw.h, s + tw.s, l + tw.l); }
+  Object.assign(p, (cr.variantPalette || {})[variant] || {});
+  if (pink) p.k = OV.cheekPink;
+  for (const k in p) { let v = p[k], n = 0; while (v && v.length === 1 && n++ < 6) v = p[v]; p[k] = v; }
+  palCache.set(key, p); return p;
+}
+
+/* ---------- Zeichnen ---------- */
+function eyeBlocks(rows) {
+  const out = [], used = new Set();
+  for (let y = 0; y < rows.length - 1; y++) for (let x = 0; x < rows[y].length - 1; x++) {
+    if (used.has(x + ',' + y)) continue;
+    if (rows[y][x] === 'e' && rows[y][x + 1] === 'e' && rows[y + 1][x] === 'e' && rows[y + 1][x + 1] === 'e') {
+      out.push([x, y]); ['0,0', '1,0', '0,1', '1,1'].forEach(d => { const [a, b] = d.split(','); used.add((x + +a) + ',' + (y + +b)); });
+    }
+  }
+  return out;
+}
+function drawPet(ctx, cr, o) {
+  const s = o.s, t = Math.max(0, o.t || 0), st = o.state || 'idle', variant = o.variant || 'neugierig', fr = cr.frames;
+  let rows, hop = 0;
+  if (st === 'walk') { const i = Math.floor(t / 150) % fr.walk.length; rows = fr.walk[i]; hop = cr.walkHop[i] || 0; }
+  else if (st === 'sit' || st === 'sleep') rows = fr.sit;
+  else if (st === 'held' || st === 'fall') rows = fr.held[Math.floor(t / 240) % fr.held.length];
+  else rows = fr.stand;
+  if ((st === 'idle' || st === 'sit' || st === 'sleep' || st === 'happy') && Math.floor(t / (st === 'sleep' ? 1300 : 850)) % 2 === 1) {
+    const br = (st === 'sit' || st === 'sleep') ? cr.breathRow.sit : cr.breathRow.stand;
+    rows = ['.'.repeat(cr.w), ...rows.slice(0, br), ...rows.slice(br + 1)];
+  }
+  if (st === 'happy' && Math.floor(t / 260) % 2) hop -= 2;
+  if (variant === 'verspielt' && st === 'idle' && Math.floor(t / 420) % 3 === 0) hop -= 1;
+  let mode = DATA.variants[variant].eyes;
+  if (st === 'sleep') mode = 'closed';
+  else if (st === 'happy') mode = 'happy';
+  else if (st === 'held' || st === 'fall') mode = variant === 'aengstlich' ? 'small' : 'glint';
+  else if (st !== 'walk' && (t % 3700) < 130) mode = 'closed';
+  const pal = palette(cr, variant, variant === 'verspielt' || st === 'happy');
+  const ovr = {}, em = DATA.eyeModes[mode], eyes = eyeBlocks(rows);
+  for (const [x, y] of eyes) { ovr[x + ',' + y] = em[0]; ovr[(x + 1) + ',' + y] = em[1]; ovr[x + ',' + (y + 1)] = em[2]; ovr[(x + 1) + ',' + (y + 1)] = em[3]; }
+  const flip = !!o.flip;
+  const ox = Math.round(o.fx - cr.w * s / 2), oy = Math.round(o.fy - cr.h * s + hop * s);
+  const px = gx => ox + (flip ? (cr.w - 1 - gx) : gx) * s, py = gy => oy + gy * s;
+  const dot = (gx, gy, c) => { ctx.fillStyle = c; ctx.fillRect(px(gx), py(gy), s, s); };
+  const cursorOn = Math.floor(t / 500) % 2 === 0;
+  const scan = Math.max(1, Math.round(s / 4));
+  for (let y = 0; y < rows.length; y++) for (let x = 0; x < rows[y].length; x++) {
+    let k = rows[y][x]; if (k === '.') continue;
+    k = ovr[x + ',' + y] || k; if (k === 'C' && !cursorOn) k = 'S';
+    const c = pal[k]; if (!c) continue; dot(x, y, c);
+    if (cr.crt) { ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px(x), py(y) + s - scan, s, scan); }
+  }
+  const map = (m, gx, gy, colors) => { for (let j = 0; j < m.map.length; j++) for (let i = 0; i < m.map[j].length; i++) { const k = m.map[j][i]; if (k !== '.') dot(gx + i, gy + j, (colors || m.colors)[k]); } };
+  if (o.stage === 'baby') {
+    let minX = cr.w, maxX = -1;
+    for (let y = cr.h - 5; y < cr.h; y++) for (let x = 0; x < cr.w; x++) if (rows[y][x] !== '.') { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+    for (let x = minX - 1; x <= maxX + 1; x++) {
+      const edge = cr.h - 5 + (((x % 2) + 2) % 2);
+      for (let y = edge; y < cr.h; y++) dot(x, y, (y === edge || y === cr.h - 1 || x === minX - 1 || x === maxX + 1) ? OV.eggshell.outline : OV.eggshell.shell);
+    }
+  }
+  if (o.acc === 'brille' && eyes.length) {
+    const gc = cr.glassColor;
+    for (const [x, y] of eyes) { for (let i = -1; i <= 2; i++) { dot(x + i, y - 1, gc); dot(x + i, y + 2, gc); } for (let j = 0; j <= 1; j++) { dot(x - 1, y + j, gc); dot(x + 2, y + j, gc); } }
+    const sorted = eyes.slice().sort((a, b) => a[0] - b[0]);
+    for (let x = sorted[0][0] + 3; x <= sorted[1][0] - 2; x++) dot(x, sorted[0][1], gc);
+  }
+  if (o.acc === 'helm') map(OV.helm, cr.anchors.helm.x, cr.anchors.helm.y);
+  if (o.acc === 'lupe') map(OV.lupe, cr.anchors.lupe.x, cr.anchors.lupe.y);
+  if (variant === 'aengstlich' && st !== 'sleep') map(OV.sweat, cr.anchors.sweat.x, cr.anchors.sweat.y + (Math.floor(t / 400) % 2));
+  if (o.hand && st === 'held') map(OV.hand, cr.anchors.hand.x - 3, cr.anchors.hand.y - 5);
+  if (st === 'sleep') {
+    for (let k = 0; k < 2; k++) { const ph = ((t / 2400) + k * .5) % 1; map(OV.zzz, Math.round(cr.w - 4 + ph * 3), Math.round(-1 - ph * 5)); }
+  }
+  if (st === 'happy') {
+    const ph = (t % 1600) / 1600; map(OV.heart, Math.round(cr.w / 2 - 3 + Math.sin(ph * 6.28) * 1.5), Math.round(-3 - ph * 4));
+  }
+}
+
+/* ---------- Canvas-Hilfen ---------- */
+function setupCanvas(cv, w, h) {
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.width = w + 'px';
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false; return ctx;
+}
+let theme = {};
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  theme = { line: g('--line'), muted: g('--muted'), termBg: g('--term-bg'), termFg: g('--term-fg'), termDim: g('--term-dim'), termOk: g('--term-ok'), termErr: g('--term-err'), termAcc: g('--term-acc') };
+  window.__petDirty = true;
+}
+readTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+const sprites = []; // {ctx, w, h, draw(t)}
+function spriteCanvas(cr, s, draw, gridScale) {
+  const gs = gridScale || s, padX = 5, padTop = 7, padBottom = 2;
+  const w = (cr.w + padX * 2) * gs, h = (cr.h + padTop + padBottom) * gs;
+  const cv = document.createElement('canvas');
+  const ctx = setupCanvas(cv, w, h);
+  sprites.push({ ctx, w, h, fx: w / 2, fy: h - padBottom * gs, draw });
+  return cv;
+}
+
+/* ---------- Karten ---------- */
+const STATES = [['auto', 'Im Wechsel'], ['idle', 'Ruhe'], ['walk', 'Laufen'], ['sit', 'Sitzen'], ['sleep', 'Schlafen'], ['held', 'Hochgehoben'], ['happy', 'Freude']];
+const CYCLE = [['idle', 3000], ['walk', 3000], ['sit', 2200], ['sleep', 3200], ['held', 2600], ['happy', 2600]];
+const CYCLE_LEN = CYCLE.reduce((a, c) => a + c[1], 0);
+function cycleState(t) { let m = t % CYCLE_LEN; for (const [s, d] of CYCLE) { if (m < d) return s; m -= d; } return 'idle'; }
+const DESC = {
+  katze: 'Eine kleine getigerte Katze mit Ohren und Ringelschwanz. Sie wird auf Anhieb als Haustier gelesen und kann am meisten Gefühl zeigen.',
+  schleim: 'Ein runder Glibber, der beim Laufen hüpft und beim Hochheben nach unten tropft. Simpel, weich und gut lesbar auch in klein.',
+  krake: 'Eine tintenblaue Krake, deren vier Arme beim Laufen über die Textzeilen tasten. Passt zum Bild von Tinte auf dem Terminal.',
+  bit: 'Ein kleiner Röhrenmonitor auf Beinchen mit Phosphor-Gesicht und blinkendem Cursor. Der Charakter färbt den Bildschirm: bernstein, grün, cyan oder blass.',
+  spatz: 'Ein runder Spatz, der von Zeile zu Zeile hüpft statt zu laufen. Hochgehoben schlägt er wild mit den Flügeln.',
+  pilz: 'Ein Pilzwesen mit rotem Punktehut und Gesicht im Stiel. Watschelt gemütlich und findet in jeder Ecke einen Sitzplatz.',
+  axolotl: 'Ein rosa Axolotl mit Kiemenbüscheln, breitem Lächeln und Ringelschwanz. Freundlich, weich und gut erkennbar.',
+  klammer: 'Ein lebendiges Klammer-Paar { } mit Gesicht dazwischen. Sieht selbst aus wie Code und läuft auf zwei dünnen Strichbeinen.',
+};
+const DESC_SHORT = { katze: 'Ohren, Schwanz, vier Pfoten', schleim: 'hüpft statt zu laufen', krake: 'vier tastende Arme', bit: 'Monitor mit Scanlines', spatz: 'hüpft und flattert', pilz: 'Gesicht im Stiel', axolotl: 'Kiemen und Lächeln', klammer: 'Gesicht zwischen { }' };
+const VARIANT_NOTE = { faul: 'schläft viel', neugierig: 'folgt dir', verspielt: 'hüpft gern', aengstlich: 'schwitzt' };
+const ACCS = [['helm', 'Bauhelm', 'viel Bash'], ['brille', 'Brille', 'viel Websuche'], ['lupe', 'Lupe', 'viel Debugging']];
+const STAGES = [['baby', 'Baby', 'im Ei', 2], ['jung', 'Jung', '', 3], ['adult', 'Erwachsen', '', 4]];
+
+const cardsEl = document.getElementById('cards');
+for (const cr of DATA.creatures) {
+  const card = document.createElement('article'); card.className = 'card'; card.id = 'entwurf-' + cr.num;
+  card.innerHTML = `
+    <div class="card-head"><span class="num">Entwurf ${cr.num}</span><h2>${cr.name}</h2><span class="art">${cr.art} · ${cr.w}×${cr.h} px · ${DESC_SHORT[cr.id]}</span></div>
+    <p class="desc">${DESC[cr.id]}</p>
+    <div class="stage"><div class="seg" role="group" aria-label="Zustand von ${cr.name}"></div></div>
+    <div class="row"><h3>Charaktere</h3><div class="cells four" data-k="var"></div></div>
+    <div class="row"><h3>Wachstum</h3><div class="cells three" data-k="grow"></div></div>
+    <div class="row"><h3>Accessoires nach Arbeit</h3><div class="cells three" data-k="acc"></div></div>
+    <div class="card-foot"><button class="btn" type="button" id="try-${cr.id}">In der Szene ausprobieren</button></div>`;
+  cardsEl.appendChild(card);
+  const stage = card.querySelector('.stage'), seg = stage.querySelector('.seg');
+  let chosen = 'auto';
+  const stageCv = spriteCanvas(cr, 5, (ctx, sp, t) => {
+    const st = chosen === 'auto' ? cycleState(t) : chosen;
+    ctx.fillStyle = theme.line; ctx.fillRect(16, sp.fy, sp.w - 32, 2);
+    drawPet(ctx, cr, { s: 5, t, state: st, variant: 'neugierig', fx: sp.fx, fy: sp.fy, hand: true });
+  });
+  stage.insertBefore(stageCv, seg);
+  for (const [k, label] of STATES) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.id = `st-${cr.id}-${k}`;
+    b.setAttribute('aria-pressed', k === chosen ? 'true' : 'false');
+    b.addEventListener('click', () => { chosen = k; window.__petDirty = true; seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); });
+    seg.appendChild(b);
+  }
+  const cell = (holder, cv, label, note) => {
+    const d = document.createElement('div'); d.className = 'cell'; d.appendChild(cv);
+    const sp = document.createElement('span'); sp.textContent = label; d.appendChild(sp);
+    if (note) { const sm = document.createElement('small'); sm.textContent = note; d.appendChild(sm); }
+    holder.appendChild(d);
+  };
+  const vHold = card.querySelector('[data-k="var"]');
+  for (const v of VARIANTS) {
+    cell(vHold, spriteCanvas(cr, 3, (ctx, sp, t) => drawPet(ctx, cr, { s: 3, t: t + v.length * 377, state: v === 'faul' && (t % 9000) > 5000 ? 'sleep' : 'idle', variant: v, fx: sp.fx, fy: sp.fy })), DATA.variants[v].label, VARIANT_NOTE[v]);
+  }
+  const gHold = card.querySelector('[data-k="grow"]');
+  for (const [k, label, note, s] of STAGES) {
+    cell(gHold, spriteCanvas(cr, s, (ctx, sp, t) => drawPet(ctx, cr, { s, t, state: 'idle', variant: 'neugierig', stage: k, fx: sp.fx, fy: sp.fy }), 4), label, note);
+  }
+  const aHold = card.querySelector('[data-k="acc"]');
+  for (const [k, label, note] of ACCS) {
+    cell(aHold, spriteCanvas(cr, 3, (ctx, sp, t) => drawPet(ctx, cr, { s: 3, t: t + 500, state: 'idle', variant: 'neugierig', acc: k, fx: sp.fx, fy: sp.fy })), label, note);
+  }
+  card.querySelector('#try-' + cr.id).addEventListener('click', () => { setCreature(cr.id); document.querySelector('.scene').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+}
+
+/* ---------- Szene ---------- */
+const sceneCv = document.getElementById('scene');
+let sctx, SW = 0, SH = 0;
+function sizeScene() { const r = sceneCv.getBoundingClientRect(); SW = r.width; SH = r.height; sceneCv.width = Math.round(SW * dpr); sceneCv.height = Math.round(SH * dpr); sctx = sceneCv.getContext('2d'); sctx.setTransform(dpr, 0, 0, dpr, 0, 0); sctx.imageSmoothingEnabled = false; }
+sizeScene();
+addEventListener('resize', () => { sizeScene(); });
+
+const POOL = [
+  ['● Read(src/overlay.py)', 'dot'], ['  ⎿  Read 142 lines', 'sub'], ['', 'blank'],
+  ['● Die Plattformen kommen jetzt aus den Zeilenrechtecken.', 'dot'], ['  Leere Zeilen sind Lücken, kurze Zeilen sind Kanten.', 'plain'], ['', 'blank'],
+  ['● Bash(python -m pytest -q)', 'dot'], ['  ⎿  12 passed in 0.84s', 'ok'], ['', 'blank'],
+  ['● Update(src/physics.py)', 'dot'], ['  ⎿  Updated with 6 additions and 2 removals', 'sub'],
+  ['● Bash(python -m claude_pet)', 'dot'], ["  ⎿  Error: No module named 'comtypes'", 'err'], ['', 'blank'],
+  ['● Ich installiere comtypes in die venv.', 'dot'], ['  ⎿  Successfully installed comtypes-1.4.8', 'ok'],
+  ['● Tabs gefunden: 4, aktiv: claude-pet bauen', 'dot'], ['  Zeilenhöhe 24 px, 51 Zeilen sichtbar', 'plain'], ['', 'blank'],
+  ['● Write(src/personality.py)', 'dot'], ['  ⎿  Wrote 88 lines', 'sub'], ['✓ Etappe 1 läuft', 'ok'], ['', 'blank'],
+];
+let lines = [], poolI = 0, lineId = 0, slide = 0, pushTimer = 0;
+const LH = 22, PADX = 16, FONT = '14px "IBM Plex Mono", ui-monospace, Consolas, monospace';
+let charW = 8.4;
+function measure() { sctx.font = FONT; charW = sctx.measureText('MMMMMMMMMM').width / 10; }
+function promptTop() { return SH - 46; }
+function areaBottom() { return promptTop() - 10; }
+function pushLine() { const [text, kind] = POOL[poolI++ % POOL.length]; lines.push({ id: lineId++, text, kind }); slide = 1; }
+for (let i = 0; i < 12; i++) pushLine(); slide = 0;
+function lineY(idx) { return areaBottom() - (lines.length - idx) * LH + slide * LH; }
+function platform(idx) {
+  const L = lines[idx]; const tr = L.text.replace(/\s+$/, ''); if (!tr) return null;
+  const lead = tr.length - tr.replace(/^\s+/, '').length;
+  return { x0: PADX + lead * charW, x1: PADX + tr.length * charW, y: lineY(idx) + 4 };
+}
+
+let curCr = DATA.creatures[0], curVar = 'neugierig';
+const TRAITS = {
+  faul:       { speed: .5,  edgeTurn: .5,  hop: 0,    jump: .15, pick: [['walk', .3], ['sit', .2], ['sleep', .5]] },
+  neugierig:  { speed: 1,   edgeTurn: .2,  hop: 0,    jump: .5,  pick: [['walk', .7], ['idle', .2], ['sit', .1]] },
+  verspielt:  { speed: 1.5, edgeTurn: .05, hop: .012, jump: 1,   pick: [['walk', .75], ['idle', .1], ['sit', .15]] },
+  aengstlich: { speed: .8,  edgeTurn: .85, hop: 0,    jump: .2,  pick: [['walk', .5], ['sit', .35], ['idle', .15]] },
+};
+const PS = 3;
+const pet = { x: 120, y: 0, vx: 0, vy: 0, on: null, dir: 1, mode: 'fall', timer: 0, floorTime: 0, happyT: 0 };
+const pointer = { x: 0, y: 0, inside: false, down: false, lx: 0, ly: 0, vx: 0, vy: 0, grabDy: 0 };
+
+function pick(tr) { let r = Math.random(), acc = 0; for (const [m, p] of tr.pick) { acc += p; if (r < acc) return m; } return 'walk'; }
+function setMode(m) { pet.mode = m; pet.timer = m === 'walk' ? 2500 + Math.random() * 3500 : m === 'sleep' ? 5000 + Math.random() * 4000 : 1600 + Math.random() * 2400; if (m === 'walk' && Math.random() < .4) pet.dir *= -1; }
+function surfaceOf(on) { if (on === 'floor') return { x0: 0, x1: SW, y: promptTop() }; const idx = lines.findIndex(l => l.id === on); if (idx < 0) return null; return platform(idx); }
+function land(on, y, vy) {
+  pet.on = on; pet.y = y; pet.vx = 0; pet.vy = 0; pet.floorTime = 0;
+  if (vy > 8 && curVar !== 'aengstlich') { pet.mode = 'happy'; pet.timer = 800; } else setMode(pick(TRAITS[curVar]));
+}
+
+function update(dt) {
+  const f = dt / 16.67, tr = TRAITS[curVar], half = curCr.w * PS / 2;
+  pushTimer += dt;
+  if (pushTimer > 2300) { pushTimer = 0; pushLine(); }
+  slide = Math.max(0, slide - dt / 260);
+  while (lines.length && lineY(0) < -LH * 2) { if (pet.on === lines[0].id) pet.on = null; lines.shift(); }
+  if (pet.mode === 'held') return;
+  if (pet.on != null) {
+    const sf = surfaceOf(pet.on);
+    if (!sf || sf.y < 8) { pet.on = null; pet.mode = 'fall'; pet.vy = 0; return; }
+    pet.y = sf.y;
+    pet.timer -= dt;
+    if (pet.on === 'floor') pet.floorTime += dt;
+    if (pet.timer <= 0) setMode(pick(tr));
+    if (pet.mode === 'walk') {
+      if (curVar === 'neugierig' && pointer.inside && Math.abs(pointer.x - pet.x) > 14) pet.dir = Math.sign(pointer.x - pet.x);
+      pet.x += pet.dir * .75 * tr.speed * f;
+      if (tr.hop && Math.random() < tr.hop * f) { pet.on = null; pet.mode = 'fall'; pet.vy = -5; pet.vx = pet.dir * 1.6; return; }
+      if (pet.x < half) { pet.x = half; pet.dir = 1; }
+      if (pet.x > SW - half) { pet.x = SW - half; pet.dir = -1; }
+      if (pet.x < sf.x0 || pet.x > sf.x1) {
+        if (Math.random() < tr.edgeTurn) { pet.dir *= -1; pet.x = Math.min(Math.max(pet.x, sf.x0), sf.x1); }
+        else { pet.on = null; pet.mode = 'fall'; pet.vx = pet.dir * 1.1 * tr.speed; pet.vy = 0; }
+      }
+    }
+    if (pet.on === 'floor' && pet.floorTime > 2600 && Math.random() < tr.jump * .02 * f) {
+      pet.on = null; pet.mode = 'fall'; pet.vy = -9.8; pet.vx = pet.dir * (1.2 + Math.random() * 1.6);
+    }
+    return;
+  }
+  // Fallen
+  const prevY = pet.y;
+  pet.vy = Math.min(14, pet.vy + .45 * f);
+  pet.x += pet.vx * f; pet.y += pet.vy * f;
+  if (pet.x < half) { pet.x = half; pet.vx = Math.abs(pet.vx) * .5; pet.dir = 1; }
+  if (pet.x > SW - half) { pet.x = SW - half; pet.vx = -Math.abs(pet.vx) * .5; pet.dir = -1; }
+  if (pet.vx) pet.dir = Math.sign(pet.vx);
+  if (pet.vy > 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const p = platform(i); if (!p || p.y < 8) continue;
+      if (prevY <= p.y && pet.y >= p.y && pet.x >= p.x0 - 2 && pet.x <= p.x1 + 2) { land(lines[i].id, p.y, pet.vy); return; }
+    }
+    if (pet.y >= promptTop()) land('floor', promptTop(), pet.vy);
+  }
+}
+
+function drawScene(t) {
+  const c = sctx; c.fillStyle = theme.termBg; c.fillRect(0, 0, SW, SH);
+  c.save(); c.beginPath(); c.rect(0, 0, SW, areaBottom() + 4); c.clip();
+  c.font = FONT; c.textBaseline = 'top';
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i], y = lineY(i) + 2; if (y > areaBottom() + 4 || y < -LH) continue;
+    const col = L.kind === 'ok' ? theme.termOk : L.kind === 'err' ? theme.termErr : L.kind === 'sub' ? theme.termDim : theme.termFg;
+    if (L.kind === 'dot') { c.fillStyle = theme.termAcc; c.fillText(L.text[0], PADX, y); c.fillStyle = col; c.fillText(L.text.slice(1), PADX + charW, y); }
+    else { c.fillStyle = col; c.fillText(L.text, PADX, y); }
+  }
+  c.restore();
+  const pt = promptTop();
+  c.fillStyle = theme.termDim; c.fillRect(0, pt, SW, 1); c.fillRect(0, SH - 10, SW, 1);
+  c.font = FONT; c.textBaseline = 'top'; c.fillStyle = theme.termFg; c.fillText('❯', PADX, pt + 12);
+  if (Math.floor(t / 530) % 2 === 0) { c.fillStyle = theme.termFg; c.fillRect(PADX + charW * 2, pt + 12, charW * .9, 16); }
+  const state = pet.mode === 'fall' ? 'fall' : pet.mode;
+  drawPet(c, curCr, { s: PS, t, state, variant: curVar, fx: Math.round(pet.x), fy: Math.round(pet.y), flip: pet.dir < 0, hand: pet.mode === 'held' });
+}
+
+function hitPet(x, y) { const half = curCr.w * PS / 2 + 4; return x > pet.x - half && x < pet.x + half && y > pet.y - curCr.h * PS - 6 && y < pet.y + 4; }
+sceneCv.addEventListener('pointermove', e => {
+  const r = sceneCv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  pointer.inside = true;
+  if (pointer.down) { pointer.vx = x - pointer.lx; pointer.vy = y - pointer.ly; pointer.lx = x; pointer.ly = y; pet.x = x; pet.y = y + pointer.grabDy; }
+  else sceneCv.style.cursor = hitPet(x, y) ? 'grab' : 'default';
+  pointer.x = x; pointer.y = y;
+});
+sceneCv.addEventListener('pointerleave', () => { pointer.inside = false; });
+sceneCv.addEventListener('pointerdown', e => {
+  const r = sceneCv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  if (!hitPet(x, y)) return;
+  sceneCv.setPointerCapture(e.pointerId); pointer.down = true; pointer.lx = x; pointer.ly = y; pointer.vx = pointer.vy = 0;
+  pointer.grabDy = Math.min(curCr.h * PS * .8, Math.max(6, pet.y - y)); pet.on = null; pet.mode = 'held'; sceneCv.style.cursor = 'grabbing';
+});
+const release = () => {
+  if (!pointer.down) return; pointer.down = false; sceneCv.style.cursor = 'grab';
+  pet.mode = 'fall'; pet.vx = Math.max(-14, Math.min(14, pointer.vx)); pet.vy = Math.max(-14, Math.min(10, pointer.vy));
+};
+sceneCv.addEventListener('pointerup', release);
+sceneCv.addEventListener('pointercancel', release);
+
+/* ---------- Auswahl ---------- */
+const pickC = document.getElementById('pickCreature'), pickV = document.getElementById('pickVariant');
+function setCreature(id) { curCr = DATA.creatures.find(c => c.id === id); pickC.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id ? 'true' : 'false')); if (pet.on != null && pet.on !== 'floor') { /* bleibt auf seiner Zeile */ } }
+function setVariant(v) { curVar = v; pickV.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === v ? 'true' : 'false')); if (pet.on != null) setMode(pick(TRAITS[v])); }
+for (const cr of DATA.creatures) { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = cr.id; b.id = 'pc-' + cr.id; b.textContent = cr.num + ' · ' + cr.name; b.addEventListener('click', () => setCreature(cr.id)); pickC.appendChild(b); }
+for (const v of VARIANTS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = v; b.id = 'pv-' + v; b.textContent = DATA.variants[v].label; b.addEventListener('click', () => setVariant(v)); pickV.appendChild(b); }
+setCreature(curCr.id); setVariant(curVar);
+
+/* ---------- Schleife ---------- */
+let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const playBtn = document.getElementById('playBtn');
+const syncPlay = () => { playBtn.textContent = playing ? 'Pause' : 'Abspielen'; };
+playBtn.addEventListener('click', () => { playing = !playing; syncPlay(); }); syncPlay();
+let T = 0, last = performance.now(), lastSprite = -1e9;
+measure(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { measure(); });
+pet.y = 10; pet.x = Math.min(220, SW / 2);
+function frame(now) {
+  const dt = Math.max(0, Math.min(50, now - last)); last = now;
+  if (playing) { T += dt; update(dt); }
+  drawScene(T);
+  if (T - lastSprite > 60 || T < lastSprite || window.__petDirty) {
+    lastSprite = T; window.__petDirty = false;
+    for (const sp of sprites) { sp.ctx.clearRect(0, 0, sp.w, sp.h); sp.draw(sp.ctx, sp, T); }
+  }
+  requestAnimationFrame(frame);
+}
+for (const sp of sprites) sp.draw(sp.ctx, sp, 0);
+requestAnimationFrame(frame);
+})();
+</script>
