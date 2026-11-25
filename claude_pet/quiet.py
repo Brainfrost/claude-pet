@@ -4,12 +4,46 @@ Mikrofon: Windows führt unter CapabilityAccessManager\\ConsentStore\\microphone
 LastUsedTimeStart/-Stop. Solange eine App das Mikrofon benutzt, ist LastUsedTimeStop = 0.
 """
 import ctypes
+import ctypes.wintypes as wt
 import winreg
+
+from . import winapi
 
 MIC = r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
 
-# SHQueryUserNotificationState: 2 = Vollbild-App, 3 = D3D-Vollbild (Spiele/Videos), 4 = Präsentationsmodus
-_BUSY_STATES = {2, 3, 4}
+# SHQueryUserNotificationState: 3 = D3D-Vollbild (Spiele/Videos), 4 = Präsentationsmodus.
+# (2 = "irgendein Vollbild-Fenster" wird NICHT benutzt: das meldet Windows auch für unsere eigenen
+#  durchsichtigen Overlays über allen Bildschirmen – stattdessen prüfen wir das aktive Fenster selbst.)
+_BUSY_STATES = {3, 4}
+_SHELL = {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"}
+
+
+class _MONITORINFO(ctypes.Structure):
+    _fields_ = [("cbSize", wt.DWORD), ("rcMonitor", wt.RECT), ("rcWork", wt.RECT), ("dwFlags", wt.DWORD)]
+
+
+def _foreground():
+    """(pid, Klasse, Fensterrechteck, Monitorrechteck) des aktiven Fensters, oder None."""
+    h = winapi.user32.GetForegroundWindow()
+    if not h:
+        return None
+    mon = ctypes.windll.user32.MonitorFromWindow(wt.HWND(h), 2)      # MONITOR_DEFAULTTONEAREST
+    info = _MONITORINFO(ctypes.sizeof(_MONITORINFO))
+    if not ctypes.windll.user32.GetMonitorInfoW(mon, ctypes.byref(info)):
+        return None
+    m = info.rcMonitor
+    return winapi.window_pid(h), winapi.class_name(h), winapi.window_rect(h), (m.left, m.top, m.right, m.bottom)
+
+
+def foreground_fullscreen(fg=None):
+    """Bedeckt das aktive Fenster (eines anderen Programms) den ganzen Monitor inkl. Taskleiste?"""
+    fg = fg if fg is not None else _foreground()
+    if not fg:
+        return False
+    pid, cls, (l, t, r, b), (ml, mt, mr, mb) = fg
+    if pid == winapi.OWN_PID or cls in _SHELL:
+        return False
+    return l <= ml and t <= mt and r >= mr and b >= mb
 
 
 def _apps_using(root_path):
@@ -52,7 +86,7 @@ def fullscreen_busy():
             return False
     except (AttributeError, OSError):
         return False
-    return state.value in _BUSY_STATES
+    return state.value in _BUSY_STATES or foreground_fullscreen()
 
 
 def reason(settings):

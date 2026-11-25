@@ -78,3 +78,14 @@ def test_patterns():
     assert kind(" ❯ 1. Yes") == "attention"
     assert kind("● Der Fehler liegt im Thread") is None
     assert kind("log.exception('x')") is None
+
+
+# ------------------------------------------------------------ Vollbild-Erkennung (Ruhemodus)
+def test_fullscreen_detection_ignores_maximized_and_own_windows():
+    import os
+    from claude_pet import quiet
+    mon = (0, 0, 1920, 1080)
+    assert quiet.foreground_fullscreen((123, "Chrome_WidgetWin_1", (0, 0, 1920, 1080), mon))      # F11/Video
+    assert not quiet.foreground_fullscreen((123, "Chrome_WidgetWin_1", (0, 0, 1920, 1040), mon))  # maximiert
+    assert not quiet.foreground_fullscreen((os.getpid(), "Qt", (0, 0, 1920, 1080), mon))         # eigenes Overlay
+    assert not quiet.foreground_fullscreen((123, "Progman", (0, 0, 1920, 1080), mon))             # Desktop

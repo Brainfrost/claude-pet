@@ -316,10 +316,8 @@ class BiteFx(_Overlay):
         self.timer.timeout.connect(self._tick)
 
     def bite(self, rect, color):
-        g = QGuiApplication.primaryScreen().virtualGeometry()
-        if self.geometry() != g:
-            self.setGeometry(g)
         self.bites.append((time.perf_counter(), rect, color))
+        self._fit()
         if not self.isVisible():
             self.show()
         self.timer.start(50)
@@ -327,12 +325,24 @@ class BiteFx(_Overlay):
 
     def _tick(self):
         now = time.perf_counter()
+        n = len(self.bites)
         self.bites = [b for b in self.bites if now - b[0] < self.LIFE]
         if not self.bites:
             self.timer.stop()
             self.hide()
             return
+        if len(self.bites) != n:
+            self._fit()
         self.update()
+
+    def _fit(self):
+        """Fenster nur so groß wie die Bissspuren (+ Rand für Krümel) – nie bildschirmfüllend."""
+        pad = 16
+        l = min(r[0] for _, r, _ in self.bites) - pad
+        t = min(r[1] for _, r, _ in self.bites) - pad
+        rr = max(r[0] + r[2] for _, r, _ in self.bites) + pad
+        b = max(r[1] + r[3] for _, r, _ in self.bites) + pad
+        self.setGeometry(int(l), int(t), int(rr - l), int(b - t))
 
     def paintEvent(self, e):
         p = QPainter(self)
