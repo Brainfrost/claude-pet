@@ -21,8 +21,9 @@ from .terminal import TerminalWatcher
 from .tray import Tray
 from . import diary as diary_mod
 from .book import BookWindow
+from .dreams import LABEL as DREAM_LABEL, Dreamer
 from .seasons import Weather
-from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, PetWindow, SeasonOverlay, TabFx
+from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, DreamCloud, PetWindow, SeasonOverlay, TabFx
 from .world import World
 
 log = logging.getLogger(__name__)
@@ -63,6 +64,8 @@ class Controller:
             if day >= recent:
                 self.diary.set_minutes(day, mins)
         self.diary_win = None
+        self.dreamer = Dreamer()
+        self.dream_win = DreamCloud(self.dreamer)
         self._diary_busy = False
         self.season_win = SeasonOverlay(self.weather)
         self.work = daily.WorkTracker()
@@ -340,6 +343,21 @@ class Controller:
             if back is not None and back >= 10 and random.random() < 0.7:
                 self.speech.canned("welcome", force=True)
 
+    # ================================================================ Träume
+    def _tick_dream(self, dt, pet, visible):
+        sleeping = pet.state == "sleep" and visible and not self.bubble.isVisible()
+        new = self.dreamer.step(dt, sleeping, self.prof["creature"], self.prof["personality"], self.diary._day())
+        if new:
+            self.diary.add_dream(DREAM_LABEL[new])
+            log.info("Traum: %s", new)
+        if self.dreamer.current is None:
+            if self.dream_win.isVisible():
+                self.dream_win.hide()
+            return
+        self.dream_win.follow(pet)
+        if not self.dream_win.isVisible():
+            self.dream_win.show()
+
     # ================================================================ Tagebuch
     def _tick_diary(self):
         self.diary.save()
@@ -595,6 +613,7 @@ class Controller:
             self.bubble.hide()
             self.ball_win.hide()
             self.season_win.hide()
+            self.dream_win.hide()
             self._adapt_rate(pet)
             return
         if pet.state in ("idle", "sit", "happy", "talk") and abs(cursor[0] - pet.x) > pet.W * 1.5:
@@ -633,6 +652,7 @@ class Controller:
         visible = self.win.isVisible() and pet.state != "hidden"
         self.speech.tick(self.world, pet.pane or 0, visible and pet.grounded)
         self.bubble.follow(pet, visible)
+        self._tick_dream(dt, pet, visible)
         self._talk(pet)
         self._adapt_rate(pet)
         if self.debug_on:
@@ -715,7 +735,7 @@ class Controller:
               or pet.squash > 0 or self.bubble.isVisible() or self.debug_on
               or (self.ball is not None and not (self.ball.resting and self.ball.vx == 0))):
             iv = 16
-        elif st in ("idle", "happy") or self.weather.active:
+        elif st in ("idle", "happy") or self.weather.active or self.dreamer.current is not None:
             iv = 33
         elif st == "sit":
             iv = 66

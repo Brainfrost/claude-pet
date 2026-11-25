@@ -5,7 +5,7 @@ Alle sind rahmenlos, durchsichtig und immer im Vordergrund. Bis auf das Pet lass
 import math
 import time
 
-from PyQt6.QtCore import QPoint, QRect, Qt, QTimer
+from PyQt6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
 from PyQt6.QtGui import (QColor, QFont, QFontMetrics, QGuiApplication, QPainter, QPainterPath, QPen,
                          QTransform)
 from PyQt6.QtWidgets import QWidget
@@ -445,6 +445,57 @@ class Bubble(_Overlay):
         p.setPen(QColor("#ffffff"))
         p.setFont(self.font_)
         p.drawText(self.text_rect.translated(0, top), Qt.TextFlag.TextWordWrap, self.text)
+        p.end()
+
+
+# ===================================================================== Träume
+class DreamCloud(_Overlay):
+    """Gedankenwolke über dem schlafenden Pet."""
+
+    UNITS = (17, 15)               # Breite/Höhe in Pet-Pixeln
+
+    def __init__(self, dreamer):
+        super().__init__()
+        self.dreamer = dreamer
+
+    def follow(self, pet):
+        s = max(2, pet.px)
+        w, h = self.UNITS[0] * s, self.UNITS[1] * s
+        bob = math.sin((self.dreamer.current or ("", 0))[1] * 2.2) * s * 0.6
+        x = int(pet.x + pet.W * 0.15)
+        y = int(pet.y - pet.H - h + 2 * s + bob)
+        if self.geometry() != QRect(x, y, w, h):
+            self.setGeometry(x, y, w, h)
+        self.update()
+
+    def paintEvent(self, e):
+        d = self.dreamer
+        if d.current is None:
+            return
+        from .dreams import CLOUD, ICONS, OUTLINE
+        s = max(2, self.width() // self.UNITS[0])
+        a = d.alpha()
+        p = QPainter(self)
+        p.setPen(Qt.PenStyle.NoPen)
+        out, fill = QColor(OUTLINE), QColor(CLOUD)
+        out.setAlpha(a)
+        fill.setAlpha(a)
+        # Wolke aus Kreisen (erst Rand, dann Füllung), unten links zwei kleine Bläschen zum Kopf
+        blobs = [(4, 3, 3.2), (8.5, 2.6, 3.6), (13, 3.4, 3.0), (5, 7.2, 3.3), (10, 7.6, 3.5), (13.6, 6.6, 2.6)]
+        bubbles = [(2.2, 12.2, 1.2), (0.9, 14.0, 0.7)]
+        for color, grow in ((out, 0.6), (fill, 0.0)):
+            p.setBrush(color)
+            for cx, cy, r in blobs + bubbles:
+                rr = (r + grow) * s
+                p.drawEllipse(QRectF(cx * s - rr, cy * s - rr, 2 * rr, 2 * rr))
+        rows, colors = ICONS[d.current[0]]
+        ox, oy = 5.0 * s, 1.8 * s
+        for y, row in enumerate(rows):
+            for x, ch in enumerate(row):
+                if ch in colors:
+                    c = QColor(colors[ch])
+                    c.setAlpha(a)
+                    p.fillRect(QRectF(ox + x * s, oy + y * s, s, s), c)
         p.end()
 
 

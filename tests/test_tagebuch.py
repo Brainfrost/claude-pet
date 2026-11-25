@@ -89,3 +89,35 @@ def test_reactions_count_commit_once(qapp):
     r._count_for_diary([("error", "Error: x")])
     day = r.ctl.diary._day()
     assert day["commits"] == 1 and day["errors"] == 1
+
+
+# ------------------------------------------------------------ Träume
+def test_dreams_come_while_sleeping_and_stop_on_waking():
+    import random
+    from claude_pet import dreams
+    d = dreams.Dreamer(random.Random(3))
+    got = [d.step(0.1, True, "katze", "verspielt", {"balls": 3}) for _ in range(600)]   # 60 s Schlaf
+    icons = [g for g in got if g]
+    assert 2 <= len(icons) <= 4, icons                       # ca. alle 20 s ein Traum
+    assert got.index(icons[0]) * 0.1 >= dreams.FIRST_AFTER - 0.1
+    assert d.step(0.1, False, "katze", "verspielt", {}) is None and d.current is None and d.alpha() == 0
+
+
+def test_dream_choice_follows_the_day():
+    import random
+    from claude_pet import dreams
+    rnd = random.Random(1)
+    many = [dreams.pick("geist", "faul", {"balls": 5}, rnd) for _ in range(400)]
+    calm = [dreams.pick("geist", "faul", {}, rnd) for _ in range(400)]
+    assert many.count("ball") > 3 * max(1, calm.count("ball"))
+    assert dreams.pick("katze", "faul", {}, random.Random(5)) in dreams.ICONS
+    assert all(len(r) == 7 for rows, _ in dreams.ICONS.values() for r in rows)
+    assert set(dreams.LABEL) == set(dreams.ICONS)
+
+
+def test_dreams_end_up_in_diary_facts(tmp_path):
+    d = _d(tmp_path)
+    d.add_dream("Ball", day="2026-11-25")
+    d.add_dream("Ball", day="2026-11-25")
+    assert d.facts("2026-11-25").count("Ball") == 1 and "geträumt" in d.facts("2026-11-25")
+    assert d.summary(d.data["days"]["2026-11-25"]) == ""

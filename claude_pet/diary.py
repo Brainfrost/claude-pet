@@ -87,6 +87,12 @@ class Diary:
             words.append(word)
             self.dirty = True
 
+    def add_dream(self, what, day=None):
+        dreams = self._day(day).setdefault("dreams", [])
+        if what not in dreams and len(dreams) < 6:
+            dreams.append(what)
+            self.dirty = True
+
     def save(self):
         if not self.dirty:
             return
@@ -108,7 +114,7 @@ class Diary:
     def worth_writing(self, day):
         d = self.data["days"].get(day, {})
         return d.get("minutes", 0) >= MIN_ACTIVE or sum(v for k, v in d.items()
-                                                        if k not in ("minutes", "words")) >= 8
+                                                        if k in COUNTERS and k != "minutes") >= 8
 
     def due_entry(self, now=None):
         """Tag, für den jetzt ein Eintrag fällig ist (ältester zuerst) – oder None."""
@@ -151,7 +157,7 @@ class Diary:
         tot = {}
         for i in range(7):
             for k, v in self.data["days"].get((mo + timedelta(days=i)).isoformat(), {}).items():
-                if k != "words":
+                if k in COUNTERS:
                     tot[k] = tot.get(k, 0) + v
         return tot
 
@@ -170,6 +176,8 @@ class Diary:
                 out.append(f"- {v} {label}")
         if d.get("words"):
             out.append("- gefressene Wörter waren u.a.: " + ", ".join(d["words"][:6]))
+        if d.get("dreams"):
+            out.append("- im Schlaf geträumt von: " + ", ".join(d["dreams"]))
         return "\n".join(out)
 
     def summary(self, counts):
