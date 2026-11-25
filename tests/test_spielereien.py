@@ -243,3 +243,34 @@ def test_daily_moments():
     assert due_moments(datetime(2026, 11, 26, 15, 0), []) == [], "Donnerstag: kein Wochenende"
     assert due_moments(datetime(2026, 11, 26, 17, 30), []) == ["evening"]
     assert due_moments(datetime(2026, 11, 28, 17, 30), []) == [], "Samstag: kein Feierabend"
+
+
+# ------------------------------------------------------------ Jahreszeiten
+def test_seasons_and_weather_lands_on_text_and_scrolls_with_it():
+    from datetime import date
+    from claude_pet import seasons
+    assert seasons.season(date(2026, 12, 3)) == "winter" and seasons.season(date(2026, 11, 25)) == "herbst"
+    assert seasons.season(date(2026, 4, 1)) == "fruehling" and seasons.season(date(2026, 7, 1)) == "sommer"
+    text = [f"Zeile {i} " + "x" * 60 for i in range(200)]
+    w = World()
+    w.update(make_snapshot(text[0:20], rows=22))
+    wx = seasons.Weather("winter", random.Random(1))
+    for _ in range(60 * 20):
+        wx.step(1 / 60, w)
+    assert wx.resting, "Schnee bleibt auf den Zeilen liegen"
+    assert all(p["row"] >= 0 for p in wx.resting)
+    assert len(wx.flying) <= seasons.MAX_FLYING
+    before = {id(p): p["row"] for p in wx.resting}
+    w.update(make_snapshot(text[3:23], rows=22))              # 3 Zeilen gescrollt
+    wx.on_world(w)
+    moved = [p for p in wx.resting if id(p) in before]
+    assert moved and all(p["row"] == before[id(p)] - 3 for p in moved), "wandert mit der Zeile"
+
+
+def test_winter_hat_renders(qapp):
+    r = creatures.Renderer()
+    c = creatures.get("katze")
+    plain = r.render(c, variant="faul", state="idle", t=0, walk_i=0, blinking=False, facing=1, px=3, stage="jung")
+    hat = r.render(c, variant="faul", state="idle", t=0, walk_i=0, blinking=False, facing=1, px=3, stage="jung",
+                   accessories=("muetze",))
+    assert plain != hat

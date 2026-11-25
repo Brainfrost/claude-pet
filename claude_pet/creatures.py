@@ -9,6 +9,9 @@ from PyQt6.QtGui import QColor, QImage, QPainter, QTransform
 DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "design", "pet-data.json")
 
 STAGE_PX = {"baby": 2, "jung": 3, "erwachsen": 4}
+# Wintermütze (an der Helm-Position), nur wenn kein Bauhelm getragen wird
+MUETZE = {"map": ["...WW...", "..rrrr..", ".rrrrrr.", "rrrrrrrr", "WWWWWWWW"],
+          "colors": {"r": "#d62839", "W": "#ffffff"}}
 MARGIN_X = 6     # Rasterpixel links/rechts im Bild (Lupe, Herzchen)
 MARGIN_TOP = 8   # Rasterpixel über dem Kopf (Hand, Helm, Effekte)
 
@@ -204,6 +207,8 @@ class Renderer:
                 (x1, y1), (x2, _) = sorted(blocks)[:2]
                 for xx in range(x1 + 3, x2 - 1):
                     put(xx, y1 - 1, gc.name())
+        if "muetze" in accessories and "helm" not in accessories and "helm" in anchors:
+            self._overlay(p, MUETZE, anchors["helm"]["x"], anchors["helm"]["y"], ox, oy, px)
         if "helm" in accessories and "helm" in anchors:
             self._overlay(p, d["overlays"]["helm"], anchors["helm"]["x"], anchors["helm"]["y"], ox, oy, px)
         if "lupe" in accessories and "lupe" in anchors:

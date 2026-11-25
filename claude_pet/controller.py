@@ -19,7 +19,8 @@ from .speech import Speech
 from .stats import StatsWatcher
 from .terminal import TerminalWatcher
 from .tray import Tray
-from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, PetWindow, TabFx
+from .seasons import Weather
+from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, PetWindow, SeasonOverlay, TabFx
 from .world import World
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,8 @@ class Controller:
         self.bitefx = BiteFx()
         self.ball = None
         self.ball_win = BallWindow(self)
+        self.weather = Weather()
+        self.season_win = SeasonOverlay(self.weather)
         self.work = daily.WorkTracker()
         self._day_t = self._work_t = 0.0
         self.debug = DebugOverlay(self)
@@ -226,6 +229,32 @@ class Controller:
             self._messenger_t = now
             self._messenger_text = tab[:40]
             log.info("Bote: %s ist fertig", tab)
+
+    def accessories(self):
+        """Getragene Accessoires – im Winter zusätzlich die Mütze."""
+        acc = list(growth.worn(self.prof))
+        if self.settings.get("seasons", True) and self.weather.kind == "winter":
+            acc.append("muetze")
+        return acc
+
+    def _tick_weather(self, dt):
+        on = (self.settings.get("seasons", True) and self.world.ok and not self.quiet_reason
+              and self.world.snap.panes and not self._terminal_hidden())
+        if not on:
+            if self.season_win.isVisible():
+                self.season_win.hide()
+                self.weather.clear()
+            return
+        self.weather.step(dt, self.world, self.pet)
+        self.season_win.sync(self.world.snap.win_rect)
+        if not self.season_win.isVisible():
+            self.season_win.show()
+
+    def _terminal_hidden(self):
+        """Terminal von einem anderen Fenster verdeckt? (dann kein Wetter darüber malen)"""
+        l, t, r, b = self.world.snap.panes[0].rect
+        top = winapi.top_window_at(int((l + r) / 2), int((t + b) / 2))
+        return top is not None and top != self.world.snap.hwnd
 
     def on_fetched(self):
         self.prof["fetched"] = self.prof.get("fetched", 0) + 1
@@ -426,6 +455,7 @@ class Controller:
             (l0, t0, r0, b0), (l1, t1, r1, b1) = self._last_win_rect, snap.win_rect
             if (r0 - l0, b0 - t0) == (r1 - l1, b1 - t1):
                 self.pet.translate(l1 - l0, t1 - t0)
+            self.weather.clear()                      # Fenster bewegt: Laub/Schnee liegt sonst daneben
         if snap.ok:
             self._last_win_rect = snap.win_rect
         self.world.update(snap)
@@ -435,6 +465,7 @@ class Controller:
         self.brain.on_world(self.world)
         self.pet.on_world(self.world)
         self.reactions.on_world(self.world)
+        self.weather.on_world(self.world)
 
     def screen_floor(self, x):
         g = self._screen_near(x, self.pet.y - 1).availableGeometry()
@@ -467,6 +498,7 @@ class Controller:
             self.win.hide()
             self.bubble.hide()
             self.ball_win.hide()
+            self.season_win.hide()
             self._adapt_rate(pet)
             return
         if pet.state in ("idle", "sit", "happy", "talk") and abs(cursor[0] - pet.x) > pet.W * 1.5:
@@ -486,6 +518,7 @@ class Controller:
         self.brain.tick(dt, self.world, cursor)
         pet.step(dt, self.world, self.screen_floor, self.vbounds(), cursor)
         self._tick_ball(dt)
+        self._tick_weather(dt)
         self._play_tab_effects()
         self._update_visibility(now)
         self.place()
@@ -584,7 +617,7 @@ class Controller:
               or pet.squash > 0 or self.bubble.isVisible() or self.debug_on
               or (self.ball is not None and not (self.ball.resting and self.ball.vx == 0))):
             iv = 16
-        elif st in ("idle", "happy"):
+        elif st in ("idle", "happy") or self.weather.active:
             iv = 33
         elif st == "sit":
             iv = 66

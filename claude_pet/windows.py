@@ -10,7 +10,7 @@ from PyQt6.QtGui import (QColor, QFont, QFontMetrics, QGuiApplication, QPainter,
                          QTransform)
 from PyQt6.QtWidgets import QWidget
 
-from . import creatures, effects, growth, winapi
+from . import creatures, effects, winapi
 from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_VISION, ROW_WINDOW
 
 _OVERLAY_FLAGS = (Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
@@ -65,7 +65,7 @@ class PetWindow(QWidget):
         pet = ctl.pet
         s = pet.px
         img = ctl.renderer.render(pet.creature, variant=ctl.prof["personality"], t=pet.anim_t,
-                                  px=s, stage=pet.stage, accessories=growth.worn(ctl.prof),
+                                  px=s, stage=pet.stage, accessories=ctl.accessories(),
                                   **pet.pose())
         if 0 < pet.spin < 1:
             # Purzelbaum: um die Körpermitte drehen
@@ -445,6 +445,37 @@ class Bubble(_Overlay):
         p.setPen(QColor("#ffffff"))
         p.setFont(self.font_)
         p.drawText(self.text_rect.translated(0, top), Qt.TextFlag.TextWordWrap, self.text)
+        p.end()
+
+
+# ===================================================================== Jahreszeiten
+class SeasonOverlay(_Overlay):
+    """Zeichnet Schnee/Laub/Blüten über dem Terminal (Klicks gehen durch)."""
+
+    def __init__(self, weather):
+        super().__init__()
+        self.weather = weather
+
+    def sync(self, rect):
+        l, t, r, b = rect
+        if self.geometry() != QRect(l, t, r - l, b - t):
+            self.setGeometry(l, t, r - l, b - t)
+        self.update()
+
+    def paintEvent(self, e):
+        w = self.weather
+        ox, oy = self.geometry().x(), self.geometry().y()
+        p = QPainter(self)
+        leaf = w.kind in ("herbst", "fruehling")
+        for part in list(w.flying) + list(w.resting):
+            s = part["size"]
+            x, y = int(part["x"] - ox), int(part["y"] - oy - s)
+            c = QColor(part["color"])
+            if leaf:
+                p.fillRect(x, y + 1, s, max(1, s - 2), c)     # Blatt: etwas breiter als hoch
+                p.fillRect(x + 1, y, max(1, s - 2), 1, c)
+            else:
+                p.fillRect(x, y, s, s, c)
         p.end()
 
 
