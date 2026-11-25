@@ -120,7 +120,7 @@ class Tray:
         lines = [
             f"Stufe: {pr.get('stage')}  ·  aktive Zeit {active}"
             + (f" / {growth.hours(need)} bis {nxt}" if nxt else ""),
-            f"Bindung {pr['bond']:.0f}/100  ·  Stimmung {pr['mood']:.0f}/100",
+            f"Bindung {pr['bond']:.0f}/100  ·  Stimmung {pr['mood']:.0f}/100  ·  Energie {self.ctl.pet.energy:.0f}/100",
             f"Seit Geburt: {st.get('tools', 0)} Tool-Aufrufe, {st.get('prompts', 0)} Eingaben, "
             f"{st.get('sessions', 0)} Sessions",
             "Tricks: " + (", ".join(tricks) if tricks else "noch keine"),

@@ -492,7 +492,7 @@ class DebugOverlay(_Overlay):
             where = ("draußen" if sp is not None and sp.row in OUTSIDE_ROWS else
                      f"Zeile {sp.row}" if sp is not None else "in der Luft")
             lines = [f"{pet.state}  ·  {where}",
-                     f"Ziel: {b.goal[0] if b.goal else '–'}  ·  Laune {pet.mood:.0f}  ·  Bindung {pet.bond:.0f}"]
+                     f"Ziel: {b.goal[0] if b.goal else '–'}  ·  Laune {pet.mood:.0f}  ·  Energie {pet.energy:.0f}"]
             x, y = int(pet.x - ox + pet.W / 2 + 8), int(pet.y - oy - pet.H)
             p.fillRect(x - 4, y - 14, 300, 18 * len(lines) + 6, QColor(0, 0, 0, 150))
             p.setPen(QColor("#ffffff"))

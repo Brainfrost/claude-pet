@@ -97,6 +97,7 @@ class Reactions:
                     if not typed:
                         if is_content(line):
                             self.buffer.append(line.rstrip())
+                            brain.news = True
                         if FOOD.search(line):
                             brain.food_urge = True    # neues Futter: bald hingehen
                         if GIT_PUSH.search(line):

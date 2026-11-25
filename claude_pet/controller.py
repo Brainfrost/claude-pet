@@ -111,6 +111,9 @@ class Controller:
         self.brain.on_fetched = self.on_fetched
         self.brain.ball = getattr(self, "ball", None)
         self.pet.daypart = daily.daypart()
+        # Energie: zuletzt gespeicherter Stand, plus Erholung für die Zeit, in der das Pet aus war
+        away_h = max(0.0, (time.time() - self.prof.get("last_seen", time.time())) / 3600.0)
+        self.pet.energy = min(100.0, self.prof.get("energy", 100.0) + away_h * 60.0)
         self._sync_progress()
         log.info("Pet: %s (%s), Charakter %s, Stufe %s, XP %d, Bindung %.0f", self.prof["name"],
                  self.prof["creature"], self.prof["personality"], self.pet.stage, self.prof["xp"],
@@ -379,6 +382,7 @@ class Controller:
 
     def quit(self):
         self.prof["last_seen"] = time.time()
+        self.prof["energy"] = round(self.pet.energy, 1)
         profile.save(self.prof)
         self.stats.stop()
         self.vision.stop()
@@ -445,6 +449,7 @@ class Controller:
         if now - self._last_save > 30:
             self._last_save = now
             self.prof["last_seen"] = time.time()
+            self.prof["energy"] = round(pet.energy, 1)
             profile.save(self.prof)
 
         self._tick_daily(now)

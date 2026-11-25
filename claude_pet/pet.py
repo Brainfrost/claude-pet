@@ -13,15 +13,22 @@ GROUND = {"idle", "walk", "sit", "sleep", "happy", "eat", "talk"}
 AIR = {"fall", "jump"}
 # Abläufe beim Hinein-/Herausklettern in einen Tab-Reiter (zeitgesteuert, keine Physik)
 TRANSITION = {"crouch", "hang", "climb_in", "climb_out"}
+
+# Energie: (Verbrauch-Faktor, Erholungs-Faktor) je Charakter. Laufen/Springen kosten, Sitzen und
+# Schlafen laden auf. Verspielte haben Ausdauer, Faule sind schnell erschöpft.
+ENERGY = {"faul": (1.6, 1.2), "neugierig": (1.0, 1.0), "verspielt": (1.0, 0.9), "aengstlich": (1.1, 1.0)}
+REGEN = {"sit": 0.3, "sleep": 0.8, "hidden": 0.5, "eat": 0.1}
+AWAKE_DRAIN = 0.04      # wach sein macht langsam müde (pro Sekunde, außer beim Sitzen/Schlafen)
+TIRED, EXHAUSTED = 40.0, 12.0
 CROUCH_T, HANG_T, CLIMB_T = 0.22, 0.35, 0.40
 
 # Wie sich die Charaktere bewegen
 TRAITS = {
     "faul":       {"speed": 0.6, "walk": 0.30, "jump": 0.08, "sit": 0.45, "sleep": 0.85, "idle": (3.0, 8.0),
                    "sleep_len": (40, 120)},
-    "neugierig":  {"speed": 1.1, "walk": 0.55, "jump": 0.25, "sit": 0.10, "sleep": 0.20, "idle": (0.6, 2.0),
+    "neugierig":  {"speed": 1.1, "walk": 0.50, "jump": 0.20, "sit": 0.15, "sleep": 0.20, "idle": (1.2, 3.5),
                    "sleep_len": (15, 40)},
-    "verspielt":  {"speed": 1.7, "walk": 0.50, "jump": 0.40, "sit": 0.05, "sleep": 0.10, "idle": (0.3, 1.2),
+    "verspielt":  {"speed": 1.6, "walk": 0.45, "jump": 0.25, "sit": 0.12, "sleep": 0.15, "idle": (1.0, 2.8),
                    "sleep_len": (10, 25)},
     "aengstlich": {"speed": 1.0, "walk": 0.40, "jump": 0.12, "sit": 0.30, "sleep": 0.35, "idle": (1.5, 4.0),
                    "sleep_len": (20, 60)},
@@ -70,6 +77,7 @@ class Pet:
         self.vision_grace = 0       # Bildanalyse hat die Kante kurz verloren: so oft noch tolerieren
         self.daypart = "tag"        # morgen | tag | abend | nacht (setzt der Controller)
         self.carrying = False       # trägt gerade den Ball im Maul
+        self.energy = 100.0         # 0..100 – sinkt durch Toben, steigt durch Sitzen/Schlafen
         self.set_scale(24)
 
     # ------------------------------------------------------------ Maßstab
@@ -108,10 +116,14 @@ class Pet:
         if not self.placed:
             self._spawn(world)
             return
+        if self.state in AIR:
+            self._catch_scrolling_line(world)
+            return
         if self.state not in GROUND or self.support is None or self.support.pane < 0:
             return
         sp = self.support
         new = None
+        d = None
         if sp.row == ROW_FLOOR:
             new = next((p for p in world.platforms if p.pane == sp.pane and p.row == sp.row), None)
         else:
@@ -121,10 +133,33 @@ class Pet:
             else:
                 cand = [p for p in world.platforms if abs(p.y - sp.y) < 2 and p.covers(self.x, self.tol)]
                 new = cand[0] if cand else None
+        if new is None and d is not None and sp.row - d < 0:
+            # seine Zeile ist oben aus dem Bild gescrollt: auf die nächste Zeile darunter umsteigen,
+            # statt frei zu fallen (beim schnellen Scrollen rauschte es sonst bis ganz nach unten)
+            below = [p for p in world.platforms if p.pane == sp.pane and p.row >= 0
+                     and p.covers(self.x, self.tol) and p.y >= self.y - 2]
+            if below:
+                new = min(below, key=lambda p: p.y)
+                self.squash = max(self.squash, 0.35)
         if new is None:
             self._start_fall(vx=0.0, vy=0.0)
         else:
             self.support, self.y = new, new.y
+
+    def _catch_scrolling_line(self, world):
+        """Im Fall: Zieht durchs Scrollen eine Zeile an den Füßen vorbei nach oben, landet es darauf
+        (die normale Landeprüfung sieht nur Füße, die eine Zeile durchqueren)."""
+        if self.pane is None or self.pane >= len(world.shifts) or self.vy < -50 * self.S:
+            return
+        d = world.shifts[self.pane]
+        if not d or d <= 0:
+            return
+        shift = d * self.line_h
+        passed = [p for p in world.platforms if p.pane == self.pane and p.row >= 0
+                  and p.covers(self.x, self.tol) and p.y <= self.y + 1 < p.y + shift]
+        if passed:
+            self.vy = min(self.vy, 300 * self.S)
+            self._land(max(passed, key=lambda p: p.y))
 
     def on_windows(self, world, old_rects):
         """Fensterkanten neu berechnet: auf einem Fenster stehend mitwandern oder runterfallen."""
@@ -274,6 +309,27 @@ class Pet:
             if g:
                 self.facing = -self.facing
                 self.state, self.timer = "idle", 1.5
+
+    @property
+    def tired(self):
+        return self.energy < TIRED
+
+    def _spend(self, amount):
+        cost = ENERGY.get(self.personality, (1.0, 1.0))[0]
+        if self.daypart == "abend":
+            cost *= 1.2
+        elif self.daypart == "nacht":
+            cost *= 1.5
+        self.energy = max(0.0, self.energy - amount * cost)
+
+    def _recover(self, dt, state):
+        if state not in REGEN and state != "held":
+            self._spend(dt * AWAKE_DRAIN)
+        rate = REGEN.get(state, 0.0) * ENERGY.get(self.personality, (1.0, 1.0))[1]
+        if self.daypart in ("abend", "nacht"):
+            rate *= 0.8
+        if rate:
+            self.energy = min(100.0, self.energy + rate * dt)
 
     def start_talking(self):
         """Etwas sagen: stehen bleiben, bis die Sprechblase weg ist (Rede-Animation)."""
@@ -434,6 +490,7 @@ class Pet:
         self._tick_effects(dt)
         self._tick_blink(dt)
         st = self.state
+        self._recover(dt, st)
         if self.spin > 0 and st not in AIR:
             self.spin += dt * 5
             if self.spin >= 1:
@@ -590,7 +647,8 @@ class Pet:
         elif st == "walk":
             d = 1 if self.target_x > self.x else -1
             self.facing = d
-            step = self.WALK * self.run * dt
+            self._spend(dt * 0.25 * self.run * (1.4 if self.carrying else 1.0))
+            step = self.WALK * self.run * (0.75 if self.tired else 1.0) * dt
             self.walk_phase += step
             if abs(self.target_x - self.x) <= step:
                 self.x = self.target_x
@@ -616,7 +674,12 @@ class Pet:
                     return
             self._explore(world)
             return
-        if self.daypart == "abend" and random.random() < 0.15:
+        if self.energy < EXHAUSTED:
+            self._effect("gähn", life=1.8)
+            self.state = "sleep"                          # Nickerchen, bis es wieder fit ist
+            self.timer = (85.0 - self.energy) / (REGEN["sleep"] * ENERGY[self.personality][1])
+            return
+        if (self.daypart == "abend" or self.tired) and random.random() < 0.15:
             self._effect("gähn", life=1.8)
         if self.daypart == "nacht" and random.random() < 0.7:
             self.state, self.timer = "sit", random.uniform(2, 5)     # nachts: hinsetzen, einschlafen
@@ -627,9 +690,11 @@ class Pet:
             w_walk, w_jump, w_sit = w_walk * 0.7, w_jump * 0.5, w_sit + 0.25
         elif self.mood > 75:
             w_jump *= 1.5
+        if self.tired:                                # müde: kaum springen, öfter hinsetzen
+            w_walk, w_jump, w_sit = w_walk * 0.5, w_jump * 0.15, w_sit + 0.4
         chance = {"verspielt": 0.07, "neugierig": 0.05, "aengstlich": 0.012, "faul": 0.01}.get(
             self.personality, 0.03) * (2 if "weitsprung" in self.tricks else 1)
-        if random.random() < chance:
+        if self.energy > 50 and random.random() < chance:
             self.want_adventure = True          # Controller sucht per Bildanalyse ein Ziel
             self.timer = 1.0
             return
@@ -772,6 +837,7 @@ class Pet:
     def leap_to(self, tx, ty):
         """Weiter Sprung über beliebige Distanz (z.B. zurück ins Terminal)."""
         self._pass_own_floor(ty)
+        self._spend(4.0)
         dist = math.hypot(tx - self.x, ty - self.y)
         T = min(1.6, max(0.6, dist / (1400 * self.S)))
         if ty < self.y:
@@ -783,6 +849,7 @@ class Pet:
 
     def _ballistic_to(self, tx, ty, apex):
         self._pass_own_floor(ty)
+        self._spend(1.5)
         top = min(self.y, ty) - apex
         vy0 = -math.sqrt(2 * self.G * max(1.0, self.y - top))
         t_up = -vy0 / self.G
@@ -799,6 +866,7 @@ class Pet:
         self.vy = vy * self.S
         self.vx = 0.0
         self.state, self.support = "jump", None
+        self._spend(1.5)
         self._maybe_trick()
 
     def _start_spin(self, airtime):

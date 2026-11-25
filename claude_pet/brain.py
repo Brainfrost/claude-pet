@@ -55,6 +55,7 @@ class Brain:
         self._ball_check = 0.0
         self.eat_t = random.uniform(*EAT_EVERY.get(personality, (40, 90))) * 0.5
         self.food_urge = False         # neues Futter im Text gesehen -> bald essen gehen
+        self.news = False              # neuer Text erschienen (für die Neugier)
         self.sated_t = 0.0             # so lange (s) ist es noch satt
         self.on_ate = None             # Callback(word, platform, start) – Biss anzeigen, zählen
         self.on_fetched = None         # Callback() – Ball zurückgebracht
@@ -157,6 +158,10 @@ class Brain:
             pet._effect("…", life=1.0)                  # satt: nur hinschauen
             return True
         p = self.pers
+        if pet.tired:
+            if random.random() < 0.3:
+                pet._effect("gähn", life=1.5)             # müde: nur hinschauen
+            return True
         if p == "neugierig":
             pet._effect("?", life=0.9)
             self.set_goal(None)
@@ -233,7 +238,8 @@ class Brain:
         if self._ball_check > 0:
             return False
         self._ball_check = 1.0
-        if random.random() < BALL_INTEREST.get(self.pers, 0.5):
+        interest = BALL_INTEREST.get(self.pers, 0.5) * (0.0 if pet.energy < 25 else (pet.energy / 100) ** 0.5)
+        if random.random() < interest:
             self.set_goal(("ball",))
             return True
         pet.facing = 1 if ball.x > pet.x else -1           # schaut wenigstens hin
@@ -439,7 +445,9 @@ class Brain:
             if hidden and hi is not None:
                 self._emerge(world, hi)
             elif visible:
-                self._look_at_newest(world)
+                if self.news and not pet.tired:
+                    self.news = False
+                    self._look_at_newest(world)
         elif p == "verspielt":
             if hidden and hi is not None:
                 self._emerge(world, hi)
@@ -477,7 +485,10 @@ class Brain:
         near = [q for q in cands if q.row >= bottom - 3]
         q = random.choice(near)
         tx = min(max(pet.x, q.x0 + pet.px), q.x1 - pet.px)
-        pet.leap_to(tx, q.y) if abs(q.y - pet.y) > 6 * pet.line_h else pet.jump_to(tx, q.y)
+        if abs(q.y - pet.y) > 12 * pet.line_h:
+            pet.leap_to(tx, q.y)                       # nur bei sehr weiten Wegen ein großer Satz
+        else:
+            pet.jump_to(tx, q.y)
 
     def _track_cursor(self, dt, cursor):
         import time
