@@ -127,3 +127,27 @@ def test_talk_animation_renders(qapp):
     frames = {r.render(c, variant="verspielt", state="talk", t=t / 100, walk_i=0, blinking=False, facing=1,
                        px=3, stage="jung").cacheKey() for t in range(0, 40, 4)}
     assert len(frames) >= 2, "wippt beim Reden"
+
+
+def test_digest_keeps_what_claude_wrote_and_drops_code_and_noise():
+    from claude_pet.speech import digest
+    lines = [
+        "❯ kannst du den Checkout prüfen?",
+        "● Ich prüfe den Checkout und starte die Tests.",
+        '● Bash(cd "/c/x" && npm test)',
+        "  ⎿  Error: expected 3 got 4",
+        "     at checkout.tsx:41",
+        "  ⎿  Allowed by auto mode",
+        "● Update(src/checkout.tsx)",
+        "  41 -   return items.map(render)",
+        "  41 +   return (items ?? []).map(render)",
+        "● Der Fehler kam von einer leeren Liste, jetzt ist er behoben.",
+        "  Die Tests laufen wieder grün.",
+        "✻ Baked for 1m 57s · done 17:35",
+    ]
+    d = digest(lines)
+    assert "Dein Mensch hat geschrieben: kannst du den Checkout prüfen?" in d
+    assert "leeren Liste" in d and "wieder grün" in d
+    assert "Claude hat benutzt: Bash, Update" in d and "Error: expected 3 got 4" in d
+    for noise in ("items ?? []", "return items", "Allowed by", "Baked for", "checkout.tsx:41"):
+        assert noise not in d, noise

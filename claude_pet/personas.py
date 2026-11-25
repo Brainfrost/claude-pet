@@ -131,7 +131,7 @@ def system_prompt(prof):
         f"deines Menschen herumläuft, während er mit Claude Code (einer KI zum Programmieren) arbeitet.\n"
         f"{base}\n"
         f"Dein Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n"
-        + _voice(prof)
+        + _voice(prof, examples=False)
         + (f"Das macht dich einzigartig: {persona}\n" if persona else "")
         + f"{growth.describe(prof)}\n"
         + f"Es ist gerade {DAYPART[daily.daypart()]} ({datetime.now():%H:%M}).\n"
@@ -139,9 +139,15 @@ def system_prompt(prof):
            if growth.worn(prof) else "")
         + "\nRegeln:\n"
         "- Sag genau EINEN kurzen Satz auf Deutsch (höchstens 14 Wörter), in Ich-Form, in deiner Stimme.\n"
-        "- REAGIERE auf das, was passiert – mit Gefühl, Witz, einer Frage oder einer Sorge. Fasse den Text "
-        "NICHT zusammen und lies nichts vor: keine Nummern, Ticket-IDs, Dateinamen, Pfade, Namen, "
-        "Zugangsdaten. Keine Ratschläge zum Code.\n"
+        "- Reagiere auf genau EINE Sache, die du sicher verstanden hast – mit Gefühl, Witz, einer Frage oder "
+        "einer Sorge. Erfinde nichts dazu: nichts „kracht“, nichts passiert „schon wieder“, wenn es nicht "
+        "so dasteht. Fasse nichts zusammen, lies nichts vor: keine Nummern, Ticket-IDs, Dateinamen, Pfade, "
+        "Namen, Zugangsdaten. Keine Ratschläge zum Code.\n"
+        "- Wenn du nicht klar verstehst, worum es geht, oder nichts Sinnvolles zu sagen hast: lass "
+        "\"sagen\" leer. Lieber still als Unsinn.\n"
+        "- Eigenarten aus deiner Persönlichkeit (Körperteile, Lieblingsdinge, Ausrufe) nur gelegentlich, "
+        "nicht in jedem Satz. Fang nicht so an wie einer deiner letzten Sprüche (z.B. nicht wieder mit "
+        "„Huch“, „Oh“ oder „Wetten“).\n"
         "- Deinen typischen Laut oder Ausruf (z.B. piep, buh, quietsch) benutzt du nur selten, höchstens "
         "in jedem dritten Satz – nicht als Satzanfang-Tick.\n"
         "- Wiederhole keine Formulierung aus deinen letzten Sprüchen; fang nicht immer gleich an.\n"
@@ -152,12 +158,16 @@ def system_prompt(prof):
     )
 
 
-def _voice(prof):
+def _voice(prof, examples=True):
+    """Stimme des Charakters. Beispiele nur für den Spruch-Satz – in Live-Reaktionen wurden sie
+    sonst zu Satzanfang-Ticks („Wetten, …“)."""
     v = VOICE.get(prof.get("personality"))
     if not v:
         return ""
-    desc, examples = v
-    return f"So klingst du: {desc}. Zum Beispiel (nicht abschreiben): " + " / ".join(f"„{e}“" for e in examples) + "\n"
+    desc, ex = v
+    if not examples:
+        return f"So klingst du: {desc}.\n"
+    return f"So klingst du: {desc}. Zum Beispiel (nicht abschreiben): " + " / ".join(f"„{e}“" for e in ex) + "\n"
 
 
 # Anlässe für den persönlichen Spruch-Satz (ohne KI, offline) – Schlüssel wie speech.CANNED

@@ -156,19 +156,77 @@ def fill(line, **values):
     return line
 
 
+_TOOL = re.compile(r"^● ([A-Za-z_][\w.\-]*)\(")
+_PROSE = re.compile(r"^● (.+)")
+_USER = re.compile(r"^❯ (\S.*)")
+_RESULT = re.compile(r"^\s+⎿\s*(.*)")
+_STATUS = re.compile(r"^[✻✽✶✢✳·*]\s*\S+(…| for )|^\s*(Allowed by|Running…|Tip:|… \+\d+ lines)")
+_CODEISH = re.compile(r"^\s*\d+\s*[+\-]?\s|[{};]\s*$|^\s*(def |class |import |from |return |if |for |const |let )")
+
+
+def digest(lines, max_chars=900):
+    """Terminal-Text für Haiku aufbereiten: was Claude geschrieben hat (ohne Code/Diffs), welche
+    Werkzeuge es benutzt hat, wichtige Ergebnisse und deine letzte Nachricht – statt eines wirren
+    Rohtext-Ausschnitts, aus dem Haiku sich irgendein Fragment greift."""
+    prose, tools, results, user = [], [], [], []
+    mode = None
+    for raw in lines:
+        line = raw.rstrip()
+        if not line.strip() or _STATUS.search(line) or _CHROME.search(line):
+            continue
+        m = _TOOL.match(line)
+        if m:
+            tools.append(m.group(1))
+            mode = "tool"
+            continue
+        m = _USER.match(line)
+        if m:
+            user = [m.group(1).strip()]
+            mode = "user"
+            continue
+        m = _PROSE.match(line)
+        if m:
+            prose.append(m.group(1).strip())
+            mode = "prose"
+            continue
+        m = _RESULT.match(line)
+        if m:
+            text = m.group(1).strip()
+            if text and not _STATUS.search(text):
+                results.append(text)
+            mode = "result"
+            continue
+        if line.startswith("  ") and not _CODEISH.search(line):
+            if mode == "prose":
+                prose.append(line.strip())
+            elif mode == "user":
+                user.append(line.strip())
+    parts = []
+    if user:
+        parts.append("Dein Mensch hat geschrieben: " + " ".join(user)[:240])
+    if prose:
+        parts.append("Claude hat geschrieben: " + " ".join(prose)[-(max_chars - 300):])
+    if tools:
+        counts = {}
+        for t in tools:
+            counts[t] = counts.get(t, 0) + 1
+        parts.append("Claude hat benutzt: " + ", ".join(f"{t} ×{n}" if n > 1 else t for t, n in counts.items()))
+    if results:
+        parts.append("Ergebnisse: " + " | ".join(r[:90] for r in results[-3:]))
+    return mask("\n".join(parts))[:max_chars]
+
+
 def is_content(line):
     s = line.strip()
     return len(s) >= 3 and not _CHROME.search(line)
 
 
-def context_from(world, pane=0, max_lines=30, max_chars=2400):
+def context_from(world, pane=0, max_chars=700):
+    """Was gerade im Terminal zu sehen ist – aufbereitet, ohne Eingabefeld."""
     if not world.ok or not world.snap.panes:
         return ""
     pane = min(pane or 0, len(world.snap.panes) - 1)
-    rows = content_rows([t.rstrip() for _, t in world.snap.panes[pane].lines])
-    rows = [r for r in rows if is_content(r)]
-    text = "\n".join(rows[-max_lines:])
-    return mask(text)[-max_chars:]
+    return digest(content_rows([t.rstrip() for _, t in world.snap.panes[pane].lines]), max_chars)
 
 
 def _parse(out):
@@ -280,7 +338,8 @@ class Speech(QObject):
             return False
         if not self._budget_ok():
             return False
-        return self._ask(kind, context_from(world, pane), mask(detail)[:160], mask(new_text)[-1800:])
+        return self._ask(kind, context_from(world, pane), mask(detail)[:160],
+                         digest(new_text.splitlines()) if new_text else "")
 
     def can_comment(self):
         return self._budget_ok()
@@ -345,8 +404,9 @@ class Speech(QObject):
     def _ask(self, kind, ctx, detail, new_text):
         parts = [f"Anlass: {EVENTS.get(kind, kind).format(detail=detail)}"]
         if new_text:
-            parts.append(f"Neu erschienener Text:\n{new_text}")
-        parts.append(f"Sichtbarer Terminal-Ausschnitt (zur Orientierung):\n{ctx}")
+            parts.append(f"Was gerade neu passiert ist:\n{new_text}")
+        if ctx and ctx != new_text:
+            parts.append(f"Was sonst im Terminal steht (nur zur Orientierung):\n{ctx}")
         if self.recent:
             parts.append("Deine letzten Sprüche (nichts davon wiederholen):\n"
                          + "\n".join(f"- {r}" for r in self.recent))

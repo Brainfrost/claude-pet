@@ -10,7 +10,7 @@ import time
 from collections import deque
 
 from .brain import FOOD, tab_key
-from .speech import content_rows, is_content
+from .speech import content_rows, digest, is_content
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ GIT_PUSH = re.compile(_CMD + r"\bpush\b|\b[0-9a-f]{7,}\.\.[0-9a-f]{7,}\s+\S+\s+-
 COOLDOWN = {"error": 25, "success": 25, "attention": 40, "done": 15, "start": 20, "commit": 30, "push": 30}
 
 NL = chr(10)
-CONTENT_CHARS = 500    # so viel neuer Text, bevor das Pet den Inhalt kommentiert
+CONTENT_CHARS = 350    # so viel neuer Text, bevor das Pet den Inhalt kommentiert
 BUFFER_LINES = 60
 
 
@@ -140,7 +140,7 @@ class Reactions:
             if speech.on_event(kind, world, pi, detail, new_text=new_text) and new_text:
                 self.buffer.clear()
         # --- laufend mitlesen: genug neuer Inhalt beisammen -> kommentieren
-        chars = sum(len(l.strip()) for l in self.buffer)
+        chars = len(digest(self.buffer)) if len(self.buffer) >= 3 else 0
         if chars >= CONTENT_CHARS and speech.can_comment():
             text = NL.join(self.buffer)
             self.buffer.clear()
