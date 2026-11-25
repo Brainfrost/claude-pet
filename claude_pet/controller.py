@@ -149,8 +149,10 @@ class Controller:
             return
         word, x, plat = hit
         self._hover_word = word
-        if self.brain.hovered(word, x, plat, self.world) and random.random() < 0.12:
-            self.speech.on_event("hover", self.world, plat.pane, detail=word)
+        if self.brain.hovered(word, x, plat, self.world):
+            log.info("Maus auf Wort: %s", word)
+            if random.random() < 0.12:
+                self.speech.on_event("hover", self.world, plat.pane, detail=word)
 
     def on_persona(self, text):
         if not text:

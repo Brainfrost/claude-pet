@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 FOOD = re.compile(r"\b(bugs?|todos?|fixme|errors?|fehler)\b", re.I)
 BALL_INTEREST = {"verspielt": 1.0, "neugierig": 0.8, "aengstlich": 0.4, "faul": 0.15}
 EAT_EVERY = {"verspielt": (20, 50), "neugierig": (25, 60), "aengstlich": (60, 150), "faul": (90, 240)}
+# Nach dem Fressen satt (Sekunden): in der Zeit wird nichts gefressen, auch nicht auf Maus-Hinweis
+SATED = {"verspielt": (360, 600), "neugierig": (480, 720), "aengstlich": (720, 1200), "faul": (900, 1800)}
 GOAL_TIMEOUT = 25.0
 MAX_GOAL_JUMPS = 4      # so viele Sprünge ohne Erfolg, dann gibt es auf
 
@@ -53,6 +55,7 @@ class Brain:
         self._ball_check = 0.0
         self.eat_t = random.uniform(*EAT_EVERY.get(personality, (40, 90))) * 0.5
         self.food_urge = False         # neues Futter im Text gesehen -> bald essen gehen
+        self.sated_t = 0.0             # so lange (s) ist es noch satt
         self.on_ate = None             # Callback(word, platform, start) – Biss anzeigen, zählen
         self.on_fetched = None         # Callback() – Ball zurückgebracht
 
@@ -140,15 +143,19 @@ class Brain:
         """Der Mauszeiger ruht auf einem Wort im Terminal: je nach Charakter hinschauen, hinlaufen,
         draufspringen, nervös werden – oder es fressen gehen."""
         pet = self.pet
-        if (self.goal or pet.busy or pet.state in ("hidden", "held", "cling", "sleep")
+        if self.goal and self.goal[0] == "eat":
+            self.goal, pet.busy = None, False          # du zeigst auf etwas: das ist wichtiger
+        if (self.goal or pet.busy or pet.state in ("hidden", "held", "cling", "sleep", "eat")
                 or not pet.grounded or pet.pane is None or plat.pane != pet.pane):
             return False
         pet.facing = 1 if x > pet.x else -1
         if FOOD.fullmatch(word):
             start = plat.text.find(word)
-            if start >= 0:
+            if start >= 0 and self.hungry:
                 self.set_goal(("eat", plat.text, plat.row, start, word))
                 return True
+            pet._effect("…", life=1.0)                  # satt: nur hinschauen
+            return True
         p = self.pers
         if p == "neugierig":
             pet._effect("?", life=0.9)
@@ -230,8 +237,16 @@ class Brain:
         pet.facing = 1 if ball.x > pet.x else -1           # schaut wenigstens hin
         return False
 
+    @property
+    def hungry(self):
+        return self.sated_t <= 0
+
     def _maybe_eat(self, dt, world):
         pet = self.pet
+        if self.sated_t > 0:
+            self.sated_t -= dt
+            self.food_urge = False
+            return False
         if pet.state == "hidden" or pet.pane is None or not pet.grounded or pet.busy:
             return False
         self.eat_t -= dt * (4 if self.food_urge else 1)
@@ -299,6 +314,7 @@ class Brain:
                 pet.facing = 1 if tx >= pet.x else -1
                 self.goal = None
                 pet.eat()
+                self.sated_t = random.uniform(*SATED.get(self.pers, (480, 900)))
                 if self.on_ate:
                     self.on_ate(word, p, start)
                 return

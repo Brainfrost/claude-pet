@@ -58,3 +58,34 @@ def test_hovering_food_sends_pet_to_eat_it():
     word, x, plat = w.word_at(2 * CELL_W + 15 * CELL_W + 3, 40 + 4 * LINE_H + LINE_H / 2)
     assert brain.hovered(word, x, plat, w)
     assert brain.goal and brain.goal[0] == "eat" and brain.goal[-1] == "Bug"
+
+
+def test_pet_is_sated_after_eating_and_mouse_has_priority():
+    random.seed(2)
+    w = World()
+    snap = make_snapshot(["x" * 60] * 4 + ["  hier ist ein Bug drin, noch ein Bug"] + ["x" * 60] * 4, rows=20)
+    pet = Pet(creatures.get("geist"), "jung", "verspielt")
+    brain = Brain(pet, "verspielt")
+    eaten = []
+    brain.on_ate = lambda word, p, s: eaten.append(word)
+    far = (5000, 5000)
+    for f in range(60 * 30):
+        if f % 4 == 0:
+            w.update(snap)
+            brain.on_world(w)
+            pet.on_world(w)
+        if f == 120:
+            brain.eat_t = 0
+        brain.food_urge = True                       # ständig neues Futter im Text
+        brain.tick(1 / 60, w, far)
+        pet.step(1 / 60, w, lambda x: 1100, (-2000, -100, 4000, 1200), far)
+    assert len(eaten) == 1, f"satt nach dem ersten Wort, nicht {len(eaten)}"
+    # satt: auf Futter zeigen löst kein neues Fressen aus
+    word, x, plat = w.word_at(2 * CELL_W + 15 * CELL_W + 3, 40 + 4 * LINE_H + LINE_H / 2)
+    assert brain.hovered(word, x, plat, w) and not brain.goal
+    # Weg zum Futter wird für die Maus abgebrochen
+    brain.sated_t = 0
+    brain.set_goal(("eat", plat.text, plat.row, 15, "Bug"))
+    pet.busy = True
+    word2, x2, plat2 = w.word_at(2 * CELL_W + 3, 40 + 4 * LINE_H + LINE_H / 2)
+    assert brain.hovered(word2, x2, plat2, w), "Maus hat Vorrang vor dem Weg zum Futter"
