@@ -23,6 +23,12 @@ FAVORITES = {
     "pilz": "faul",
     "axolotl": "verspielt",
     "klammer": "verspielt",
+    "tasse": "verspielt",
+    "ente": "neugierig",
+    "toast": "faul",
+    "kaktus": "faul",
+    "geist": "aengstlich",
+    "saugi": "neugierig",
 }
 FAVORITE_CHANCE = 0.5
 

@@ -108,7 +108,7 @@ footer p { margin: 0; max-width: 75ch; }
 <header class="wrap">
   <p class="eyebrow">claude-pet · Etappe 1 · Figurenwahl</p>
   <h1>Wer soll auf deinem Terminal wohnen?</h1>
-  <p class="lede">Acht Entwürfe für das Pet, das auf den Textzeilen von Claude Code herumläuft. Probier sie in der Szene aus, zieh sie mit der Maus herum und sag Claude dann im Terminal, welche Nummer es werden soll.</p>
+  <p class="lede">Vierzehn Entwürfe für das Pet, das auf den Textzeilen von Claude Code herumläuft. Probier sie in der Szene aus, zieh sie mit der Maus herum und sag Claude dann im Terminal, welche Nummer es werden soll.</p>
 </header>
 
 <section class="wrap scene" aria-label="Live-Szene">
@@ -293,7 +293,15 @@ const DESC = {
   axolotl: 'Ein rosa Axolotl mit Kiemenbüscheln, breitem Lächeln und Ringelschwanz. Freundlich, weich und gut erkennbar.',
   klammer: 'Ein lebendiges Klammer-Paar { } mit Gesicht dazwischen. Sieht selbst aus wie Code und läuft auf zwei dünnen Strichbeinen.',
 };
-const DESC_SHORT = { katze: 'Ohren, Schwanz, vier Pfoten', schleim: 'hüpft statt zu laufen', krake: 'vier tastende Arme', bit: 'Monitor mit Scanlines', spatz: 'hüpft und flattert', pilz: 'Gesicht im Stiel', axolotl: 'Kiemen und Lächeln', klammer: 'Gesicht zwischen { }' };
+Object.assign(DESC, {
+  tasse: 'Eine Kaffeetasse auf Beinchen, deren Dampf wie zerzaustes Haar über dem Rand wackelt. Trägt ihren Henkel wie eine Handtasche.',
+  ente: 'Eine Gummiente, die mit dem Schwanz wippt und über die Zeilen schaukelt. Hochgehoben macht sie den Schnabel zum Quietschen auf.',
+  toast: 'Eine Scheibe Toast mit Butterstück auf dem Kopf und dicker Kruste. Läuft auf zwei Streichholzbeinchen durch die Ausgabe.',
+  kaktus: 'Ein kleiner Kaktus mit Blüte, zwei Armen und Tontopf, der auf Füßchen durch die Gegend tippelt. Breitet beim Hochheben empört die Arme aus.',
+  geist: 'Ein kleines Gespenst mit Wackelsaum, das knapp über den Zeilen schwebt statt zu laufen. Der Mund steht vor Staunen immer ein wenig offen.',
+  saugi: 'Ein flacher Saugroboter mit Leuchtaugen, roter Statuslampe und rotierenden Bürsten. Fährt die Zeilen ab, als müsste er sie putzen.',
+});
+const DESC_SHORT = { katze: 'Ohren, Schwanz, vier Pfoten', schleim: 'hüpft statt zu laufen', krake: 'vier tastende Arme', bit: 'Monitor mit Scanlines', spatz: 'hüpft und flattert', pilz: 'Gesicht im Stiel', axolotl: 'Kiemen und Lächeln', klammer: 'Gesicht zwischen { }', tasse: 'Dampf als Frisur', ente: 'wippt und quietscht', toast: 'mit Butterhut', kaktus: 'Arme und Tontopf', geist: 'schwebt mit Wackelsaum', saugi: 'flach, mit Bürsten' };
 const VARIANT_NOTE = { faul: 'schläft viel', neugierig: 'folgt dir', verspielt: 'hüpft gern', aengstlich: 'schwitzt' };
 const ACCS = [['helm', 'Bauhelm', 'viel Bash'], ['brille', 'Brille', 'viel Websuche'], ['lupe', 'Lupe', 'viel Debugging']];
 const STAGES = [['baby', 'Baby', 'im Ei', 2], ['jung', 'Jung', '', 3], ['adult', 'Erwachsen', '', 4]];

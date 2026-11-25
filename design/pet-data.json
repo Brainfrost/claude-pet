@@ -1518,6 +1518,1060 @@
    },
    "glassColor": "#9a5cd6",
    "crt": false
+  },
+  {
+   "id": "tasse",
+   "num": 9,
+   "name": "Henkel",
+   "art": "Kaffeetasse",
+   "w": 18,
+   "h": 16,
+   "palette": {
+    "o": "#2b2030",
+    "B": "#3fa7a0",
+    "L": "#8fdcd5",
+    "D": "#6b3f22",
+    "S": "#aab4c4",
+    "e": "#2b2030",
+    "k": "B",
+    "lid": "B",
+    "shut": "e",
+    "w": "#ffffff"
+   },
+   "frames": {
+    "stand": [
+     "....S...S.........",
+     ".....S...S........",
+     "....S...S.........",
+     ".oooooooooooo.....",
+     ".oDDDDDDDDDDo.....",
+     ".oBBBBBBBBBBoooo..",
+     ".oBBeeBBeeBBo..o..",
+     ".oBBeeBBeeBBo..o..",
+     ".oBkBBooBBkBo..o..",
+     ".oBBBBBBBBBBoooo..",
+     ".oLBBBBBBBBBo.....",
+     ".oLBBBBBBBBBo.....",
+     "..oBBBBBBBBo......",
+     "...oooooooo.......",
+     "....oo...oo.......",
+     "....oo...oo......."
+    ],
+    "walk": [
+     [
+      "....S...S.........",
+      ".....S...S........",
+      "....S...S.........",
+      ".oooooooooooo.....",
+      ".oDDDDDDDDDDo.....",
+      ".oBBBBBBBBBBoooo..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBkBBooBBkBo..o..",
+      ".oBBBBBBBBBBoooo..",
+      ".oLBBBBBBBBBo.....",
+      ".oLBBBBBBBBBo.....",
+      "..oBBBBBBBBo......",
+      "...oooooooo.......",
+      "....oo...oo.......",
+      "...oo.....oo......"
+     ],
+     [
+      ".....S...S........",
+      "....S...S.........",
+      ".....S...S........",
+      ".oooooooooooo.....",
+      ".oDDDDDDDDDDo.....",
+      ".oBBBBBBBBBBoooo..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBkBBooBBkBo..o..",
+      ".oBBBBBBBBBBoooo..",
+      ".oLBBBBBBBBBo.....",
+      ".oLBBBBBBBBBo.....",
+      "..oBBBBBBBBo......",
+      "...oooooooo.......",
+      "....oo...oo.......",
+      "....oo...oo......."
+     ],
+     [
+      "....S...S.........",
+      ".....S...S........",
+      "....S...S.........",
+      ".oooooooooooo.....",
+      ".oDDDDDDDDDDo.....",
+      ".oBBBBBBBBBBoooo..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBkBBooBBkBo..o..",
+      ".oBBBBBBBBBBoooo..",
+      ".oLBBBBBBBBBo.....",
+      ".oLBBBBBBBBBo.....",
+      "..oBBBBBBBBo......",
+      "...oooooooo.......",
+      "....oo...oo.......",
+      ".....oo.oo........"
+     ],
+     [
+      ".....S...S........",
+      "....S...S.........",
+      ".....S...S........",
+      ".oooooooooooo.....",
+      ".oDDDDDDDDDDo.....",
+      ".oBBBBBBBBBBoooo..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBkBBooBBkBo..o..",
+      ".oBBBBBBBBBBoooo..",
+      ".oLBBBBBBBBBo.....",
+      ".oLBBBBBBBBBo.....",
+      "..oBBBBBBBBo......",
+      "...oooooooo.......",
+      "....oo...oo.......",
+      "....oo...oo......."
+     ]
+    ],
+    "sit": [
+     "..................",
+     "..................",
+     "....S...S.........",
+     ".....S...S........",
+     "....S...S.........",
+     ".oooooooooooo.....",
+     ".oDDDDDDDDDDo.....",
+     ".oBBBBBBBBBBoooo..",
+     ".oBBeeBBeeBBo..o..",
+     ".oBBeeBBeeBBo..o..",
+     ".oBkBBooBBkBo..o..",
+     ".oBBBBBBBBBBoooo..",
+     ".oLBBBBBBBBBo.....",
+     ".oLBBBBBBBBBo.....",
+     "..oBBBBBBBBo......",
+     "...oooooooo......."
+    ],
+    "held": [
+     [
+      "....S...S.........",
+      ".....S...S........",
+      "....S...S.........",
+      ".oooooooooooo.....",
+      ".oDDDDDDDDDDo.....",
+      ".oBBBBBBBBBBoooo..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBkBBooBBkBo..o..",
+      ".oBBBBBBBBBBoooo..",
+      ".oLBBBBBBBBBo.....",
+      ".oLBBBBBBBBBo.....",
+      "..oBBBBBBBBo......",
+      "...oooooooo.......",
+      "....o....o........",
+      "....o....o........"
+     ],
+     [
+      ".....S...S........",
+      "....S...S.........",
+      ".....S...S........",
+      ".oooooooooooo.....",
+      ".oDDDDDDDDDDo.....",
+      ".oBBBBBBBBBBoooo..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBBeeBBeeBBo..o..",
+      ".oBkBBooBBkBo..o..",
+      ".oBBBBBBBBBBoooo..",
+      ".oLBBBBBBBBBo.....",
+      ".oLBBBBBBBBBo.....",
+      "..oBBBBBBBBo......",
+      "...oooooooo.......",
+      "....o....o........",
+      ".....o...o........"
+     ]
+    ]
+   },
+   "walkHop": [
+    0,
+    -1,
+    0,
+    -1
+   ],
+   "breathRow": {
+    "stand": 11,
+    "sit": 13
+   },
+   "anchors": {
+    "hand": {
+     "x": 6,
+     "y": 3
+    },
+    "helm": {
+     "x": 3,
+     "y": -1
+    },
+    "lupe": {
+     "x": 13,
+     "y": 10
+    },
+    "sweat": {
+     "x": 12,
+     "y": 4
+    }
+   },
+   "glassColor": "#2b2030",
+   "crt": false
+  },
+  {
+   "id": "ente",
+   "num": 10,
+   "name": "Quietsch",
+   "art": "Gummiente",
+   "w": 20,
+   "h": 15,
+   "palette": {
+    "o": "#4a3410",
+    "B": "#ffd23f",
+    "L": "#fff3b0",
+    "D": "#e0a800",
+    "p": "#ff8a1f",
+    "e": "#2a1d06",
+    "k": "B",
+    "lid": "B",
+    "shut": "e",
+    "w": "#ffffff"
+   },
+   "frames": {
+    "stand": [
+     "....................",
+     "..........oooo......",
+     ".........oBBBBo.....",
+     "........oBBBBBBo....",
+     "........oBeeBeeBo...",
+     "........oBeeBeeBo...",
+     "........okBBBBBkoppo",
+     "........oBBBBBBBoppo",
+     ".oo......oBBBBBBo...",
+     ".oBoooooooBBBBBBo...",
+     ".oBBBBBBBBBBBBBBBo..",
+     ".oBBDDDDDBBBBBBBBo..",
+     ".oBBBDDDDBBBBBBBBo..",
+     "..oBBBBBBBBBBBBBo...",
+     "...ooooooooooooo...."
+    ],
+    "walk": [
+     [
+      "....................",
+      "..........oooo......",
+      ".........oBBBBo.....",
+      "........oBBBBBBo....",
+      "........oBeeBeeBo...",
+      "........oBeeBeeBo...",
+      "........okBBBBBkoppo",
+      "........oBBBBBBBoppo",
+      ".oo......oBBBBBBo...",
+      ".oBoooooooBBBBBBo...",
+      ".oBBBBBBBBBBBBBBBo..",
+      ".oBBDDDDDBBBBBBBBo..",
+      ".oBBBDDDDBBBBBBBBo..",
+      "..oBBBBBBBBBBBBBo...",
+      "...ooooooooooooo...."
+     ],
+     [
+      "....................",
+      "..........oooo......",
+      ".........oBBBBo.....",
+      "........oBBBBBBo....",
+      "........oBeeBeeBo...",
+      "........oBeeBeeBo...",
+      "........okBBBBBkoppo",
+      ".o......oBBBBBBBoppo",
+      "..o......oBBBBBBo...",
+      ".oBoooooooBBBBBBo...",
+      ".oBBBBBBBBBBBBBBBo..",
+      ".oBBDDDDDBBBBBBBBo..",
+      ".oBBBDDDDBBBBBBBBo..",
+      "..oBBBBBBBBBBBBBo...",
+      "...ooooooooooooo...."
+     ]
+    ],
+    "sit": [
+     "....................",
+     "....................",
+     "..........oooo......",
+     ".........oBBBBo.....",
+     "........oBBBBBBo....",
+     "........oBeeBeeBo...",
+     "........oBeeBeeBo...",
+     "........okBBBBBkoppo",
+     "........oBBBBBBBoppo",
+     ".oo......oBBBBBBo...",
+     ".oBoooooooBBBBBBo...",
+     ".oBBDDDDDBBBBBBBBo..",
+     ".oBBBDDDDBBBBBBBBo..",
+     "..oBBBBBBBBBBBBBo...",
+     "...ooooooooooooo...."
+    ],
+    "held": [
+     [
+      "....................",
+      "..........oooo......",
+      ".........oBBBBo.....",
+      "........oBBBBBBo....",
+      "........oBeeBeeBo...",
+      "........oBeeBeeBo...",
+      "........okBBBBBkoppo",
+      "........oBBBBBBBoppo",
+      ".oo......oBBBBBBo...",
+      ".oBoooooooBBBBBBo...",
+      ".oBBBBBBBBBBBBBBBo..",
+      ".oBBDDDDDBBBBBBBBo..",
+      ".oBBBDDDDBBBBBBBBo..",
+      "..oBBBBBBBBBBBBBo...",
+      "...ooooooooooooo...."
+     ],
+     [
+      "....................",
+      "..........oooo......",
+      ".........oBBBBo.....",
+      "........oBBBBBBo....",
+      "........oBeeBeeBo...",
+      "........oBeeBeeBo...",
+      "........okBBBBBkoppp",
+      "........oBBBBBBBo...",
+      ".oo......oBBBBBBoppo",
+      ".oBoooooooBBBBBBo...",
+      ".oBBBBBBBBBBBBBBBo..",
+      ".oBBDDDDDBBBBBBBBo..",
+      ".oBBBDDDDBBBBBBBBo..",
+      "..oBBBBBBBBBBBBBo...",
+      "...ooooooooooooo...."
+     ]
+    ]
+   },
+   "walkHop": [
+    0,
+    -2
+   ],
+   "breathRow": {
+    "stand": 10,
+    "sit": 12
+   },
+   "anchors": {
+    "hand": {
+     "x": 12,
+     "y": 1
+    },
+    "helm": {
+     "x": 8,
+     "y": -2
+    },
+    "lupe": {
+     "x": 16,
+     "y": 9
+    },
+    "sweat": {
+     "x": 16,
+     "y": 2
+    }
+   },
+   "glassColor": "#2a1d06",
+   "crt": false
+  },
+  {
+   "id": "toast",
+   "num": 11,
+   "name": "Krümel",
+   "art": "Toastscheibe",
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "o": "#3b2412",
+    "D": "#b8702f",
+    "L": "#f5d9a3",
+    "B": "#ffe066",
+    "e": "#2b1a0c",
+    "k": "L",
+    "lid": "L",
+    "shut": "e",
+    "w": "#ffffff"
+   },
+   "frames": {
+    "stand": [
+     "................",
+     "...oooooooooo...",
+     "..oDDDDDDDDDDo..",
+     ".oDLLLLLLBBBLDo.",
+     ".oDLLLLLLBBBLDo.",
+     ".oDDLLLLLLLLDDo.",
+     "..oDLLLLLLLLDo..",
+     "..oDLeeLLeeLDo..",
+     "..oDLeeLLeeLDo..",
+     "..oDkLLooLLkDo..",
+     "..oDLLLLLLLLDo..",
+     "..oDLLLLLLLLDo..",
+     "..oDDDDDDDDDDo..",
+     "...oooooooooo...",
+     ".....o....o.....",
+     "....oo....oo...."
+    ],
+    "walk": [
+     [
+      "................",
+      "...oooooooooo...",
+      "..oDDDDDDDDDDo..",
+      ".oDLLLLLLBBBLDo.",
+      ".oDLLLLLLBBBLDo.",
+      ".oDDLLLLLLLLDDo.",
+      "..oDLLLLLLLLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDkLLooLLkDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDDDDDDDDDDo..",
+      "...oooooooooo...",
+      ".....o....o.....",
+      "...oo......oo..."
+     ],
+     [
+      "................",
+      "...oooooooooo...",
+      "..oDDDDDDDDDDo..",
+      ".oDLLLLLLBBBLDo.",
+      ".oDLLLLLLBBBLDo.",
+      ".oDDLLLLLLLLDDo.",
+      "..oDLLLLLLLLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDkLLooLLkDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDDDDDDDDDDo..",
+      "...oooooooooo...",
+      ".....o....o.....",
+      "....oo....oo...."
+     ],
+     [
+      "................",
+      "...oooooooooo...",
+      "..oDDDDDDDDDDo..",
+      ".oDLLLLLLBBBLDo.",
+      ".oDLLLLLLBBBLDo.",
+      ".oDDLLLLLLLLDDo.",
+      "..oDLLLLLLLLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDkLLooLLkDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDDDDDDDDDDo..",
+      "...oooooooooo...",
+      ".....o....o.....",
+      "......oooo......"
+     ],
+     [
+      "................",
+      "...oooooooooo...",
+      "..oDDDDDDDDDDo..",
+      ".oDLLLLLLBBBLDo.",
+      ".oDLLLLLLBBBLDo.",
+      ".oDDLLLLLLLLDDo.",
+      "..oDLLLLLLLLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDkLLooLLkDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDDDDDDDDDDo..",
+      "...oooooooooo...",
+      ".....o....o.....",
+      "....oo....oo...."
+     ]
+    ],
+    "sit": [
+     "................",
+     "................",
+     "................",
+     "...oooooooooo...",
+     "..oDDDDDDDDDDo..",
+     ".oDLLLLLLBBBLDo.",
+     ".oDLLLLLLBBBLDo.",
+     ".oDDLLLLLLLLDDo.",
+     "..oDLLLLLLLLDo..",
+     "..oDLeeLLeeLDo..",
+     "..oDLeeLLeeLDo..",
+     "..oDkLLooLLkDo..",
+     "..oDLLLLLLLLDo..",
+     "..oDLLLLLLLLDo..",
+     "..oDDDDDDDDDDo..",
+     "...oooooooooo..."
+    ],
+    "held": [
+     [
+      "................",
+      "...oooooooooo...",
+      "..oDDDDDDDDDDo..",
+      ".oDLLLLLLBBBLDo.",
+      ".oDLLLLLLBBBLDo.",
+      ".oDDLLLLLLLLDDo.",
+      "..oDLLLLLLLLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDkLLooLLkDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDDDDDDDDDDo..",
+      "...oooooooooo...",
+      ".....o....o.....",
+      ".....o....o....."
+     ],
+     [
+      "................",
+      "...oooooooooo...",
+      "..oDDDDDDDDDDo..",
+      ".oDLLLLLLBBBLDo.",
+      ".oDLLLLLLBBBLDo.",
+      ".oDDLLLLLLLLDDo.",
+      "..oDLLLLLLLLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDLeeLLeeLDo..",
+      "..oDkLLooLLkDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDLLLLLLLLDo..",
+      "..oDDDDDDDDDDo..",
+      "...oooooooooo...",
+      ".....o....o.....",
+      "......o..o......"
+     ]
+    ]
+   },
+   "walkHop": [
+    0,
+    -1,
+    0,
+    -1
+   ],
+   "breathRow": {
+    "stand": 10,
+    "sit": 12
+   },
+   "anchors": {
+    "hand": {
+     "x": 8,
+     "y": 1
+    },
+    "helm": {
+     "x": 4,
+     "y": -2
+    },
+    "lupe": {
+     "x": 12,
+     "y": 9
+    },
+    "sweat": {
+     "x": 14,
+     "y": 5
+    }
+   },
+   "glassColor": "#2b1a0c",
+   "crt": false
+  },
+  {
+   "id": "kaktus",
+   "num": 12,
+   "name": "Stachel",
+   "art": "Kaktus im Topf",
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "o": "#1f3320",
+    "B": "#5bb35b",
+    "L": "#e9f7c9",
+    "D": "#c8673a",
+    "p": "#ff6fa8",
+    "e": "#13210f",
+    "k": "B",
+    "lid": "B",
+    "shut": "e",
+    "w": "#ffffff"
+   },
+   "frames": {
+    "stand": [
+     ".......pp.......",
+     "......oooo......",
+     ".....oBBBBo.....",
+     "....oBBLBBBo....",
+     ".oo.oBBBBBBo.oo.",
+     "oBLooBBBBBBooBLo",
+     "oBBooeeBBeeooBBo",
+     "oBBooeeBBeeooBBo",
+     ".oBBoBkBBkBoBBo.",
+     "..oooBBooBBooo..",
+     "....oBLBBBBo....",
+     "..oDDDDDDDDDDo..",
+     "...oDDDDDDDDo...",
+     "...oDDDDDDDDo...",
+     "....oooooooo....",
+     ".....o....o....."
+    ],
+    "walk": [
+     [
+      ".......pp.......",
+      "......oooo......",
+      ".....oBBBBo.....",
+      "....oBBLBBBo....",
+      ".oo.oBBBBBBo.oo.",
+      "oBLooBBBBBBooBLo",
+      "oBBooeeBBeeooBBo",
+      "oBBooeeBBeeooBBo",
+      ".oBBoBkBBkBoBBo.",
+      "..oooBBooBBooo..",
+      "....oBLBBBBo....",
+      "..oDDDDDDDDDDo..",
+      "...oDDDDDDDDo...",
+      "...oDDDDDDDDo...",
+      "....oooooooo....",
+      "....o......o...."
+     ],
+     [
+      ".......pp.......",
+      "......oooo......",
+      ".....oBBBBo.....",
+      "....oBBLBBBo....",
+      ".oo.oBBBBBBo.oo.",
+      "oBLooBBBBBBooBLo",
+      "oBBooeeBBeeooBBo",
+      "oBBooeeBBeeooBBo",
+      ".oBBoBkBBkBoBBo.",
+      "..oooBBooBBooo..",
+      "....oBLBBBBo....",
+      "..oDDDDDDDDDDo..",
+      "...oDDDDDDDDo...",
+      "...oDDDDDDDDo...",
+      "....oooooooo....",
+      ".....o....o....."
+     ],
+     [
+      ".......pp.......",
+      "......oooo......",
+      ".....oBBBBo.....",
+      "....oBBLBBBo....",
+      ".oo.oBBBBBBo.oo.",
+      "oBLooBBBBBBooBLo",
+      "oBBooeeBBeeooBBo",
+      "oBBooeeBBeeooBBo",
+      ".oBBoBkBBkBoBBo.",
+      "..oooBBooBBooo..",
+      "....oBLBBBBo....",
+      "..oDDDDDDDDDDo..",
+      "...oDDDDDDDDo...",
+      "...oDDDDDDDDo...",
+      "....oooooooo....",
+      "......o..o......"
+     ],
+     [
+      ".......pp.......",
+      "......oooo......",
+      ".....oBBBBo.....",
+      "....oBBLBBBo....",
+      ".oo.oBBBBBBo.oo.",
+      "oBLooBBBBBBooBLo",
+      "oBBooeeBBeeooBBo",
+      "oBBooeeBBeeooBBo",
+      ".oBBoBkBBkBoBBo.",
+      "..oooBBooBBooo..",
+      "....oBLBBBBo....",
+      "..oDDDDDDDDDDo..",
+      "...oDDDDDDDDo...",
+      "...oDDDDDDDDo...",
+      "....oooooooo....",
+      ".....o....o....."
+     ]
+    ],
+    "sit": [
+     "................",
+     ".......pp.......",
+     "......oooo......",
+     ".....oBBBBo.....",
+     "....oBBLBBBo....",
+     ".oo.oBBBBBBo.oo.",
+     "oBLooBBBBBBooBLo",
+     "oBBooeeBBeeooBBo",
+     "oBBooeeBBeeooBBo",
+     ".oBBoBkBBkBoBBo.",
+     "..oooBBooBBooo..",
+     "....oBLBBBBo....",
+     "..oDDDDDDDDDDo..",
+     "...oDDDDDDDDo...",
+     "...oDDDDDDDDo...",
+     "....oooooooo...."
+    ],
+    "held": [
+     [
+      ".......pp.......",
+      "......oooo......",
+      ".....oBBBBo.....",
+      "....oBBLBBBo....",
+      ".oo.oBBBBBBo.oo.",
+      "oBLooBBBBBBooBLo",
+      "oBBooeeBBeeooBBo",
+      "oBBooeeBBeeooBBo",
+      ".oBBoBkBBkBoBBo.",
+      "..oooBBooBBooo..",
+      "....oBLBBBBo....",
+      "..oDDDDDDDDDDo..",
+      "...oDDDDDDDDo...",
+      "...oDDDDDDDDo...",
+      "....oooooooo....",
+      ".....o....o....."
+     ],
+     [
+      ".......pp.......",
+      "......oooo......",
+      ".....oBBBBo.....",
+      "....oBBLBBBo....",
+      ".oo.oBBBBBBo.oo.",
+      "oBLooBBBBBBooBLo",
+      "oBBooeeBBeeooBBo",
+      "oBBooeeBBeeooBBo",
+      ".oBBoBkBBkBoBBo.",
+      "..oooBBooBBooo..",
+      "....oBLBBBBo....",
+      "..oDDDDDDDDDDo..",
+      "...oDDDDDDDDo...",
+      "...oDDDDDDDDo...",
+      "....oooooooo....",
+      "......o..o......"
+     ]
+    ]
+   },
+   "walkHop": [
+    0,
+    -1,
+    0,
+    -1
+   ],
+   "breathRow": {
+    "stand": 10,
+    "sit": 11
+   },
+   "anchors": {
+    "hand": {
+     "x": 8,
+     "y": 1
+    },
+    "helm": {
+     "x": 4,
+     "y": -1
+    },
+    "lupe": {
+     "x": 12,
+     "y": 8
+    },
+    "sweat": {
+     "x": 12,
+     "y": 2
+    }
+   },
+   "glassColor": "#13210f",
+   "crt": false
+  },
+  {
+   "id": "geist",
+   "num": 13,
+   "name": "Buhu",
+   "art": "Gespenst",
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "o": "#2b2f5c",
+    "B": "#eef0ff",
+    "L": "#ffffff",
+    "D": "#c9cdf0",
+    "e": "#2b2f5c",
+    "k": "B",
+    "lid": "B",
+    "shut": "e",
+    "w": "#ffffff"
+   },
+   "frames": {
+    "stand": [
+     "................",
+     ".....oooooo.....",
+     "...ooBBBBBBoo...",
+     "..oBBBBBBBBBBo..",
+     ".oBBBBBBBBBBBBo.",
+     ".oBBeeBBBBeeBBo.",
+     ".oBBeeBBBBeeBBo.",
+     ".oBkBBBooBBBkBo.",
+     "oBBBBBBooBBBBBBo",
+     "oBBBBBBBBBBBBBBo",
+     ".oBBBBBBBBBBBBo.",
+     ".oLBBBBBBBBBBBo.",
+     ".oBBBBBBBBBBBBo.",
+     ".oBBoBBBoBBBoBo.",
+     "..oo.ooo.ooo.o..",
+     "................"
+    ],
+    "walk": [
+     [
+      "................",
+      ".....oooooo.....",
+      "...ooBBBBBBoo...",
+      "..oBBBBBBBBBBo..",
+      ".oBBBBBBBBBBBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBkBBBooBBBkBo.",
+      "oBBBBBBooBBBBBBo",
+      "oBBBBBBBBBBBBBBo",
+      ".oBBBBBBBBBBBBo.",
+      ".oLBBBBBBBBBBBo.",
+      ".oBBBBBBBBBBBBo.",
+      ".oBBoBBBoBBBoBo.",
+      "..oo.ooo.ooo.o..",
+      "................"
+     ],
+     [
+      "................",
+      ".....oooooo.....",
+      "...ooBBBBBBoo...",
+      "..oBBBBBBBBBBo..",
+      ".oBBBBBBBBBBBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBkBBBooBBBkBo.",
+      "oBBBBBBooBBBBBBo",
+      "oBBBBBBBBBBBBBBo",
+      ".oBBBBBBBBBBBBo.",
+      ".oLBBBBBBBBBBBo.",
+      ".oBBBBBBBBBBBBo.",
+      ".oBoBBBoBBBoBBo.",
+      "..o.ooo.ooo.oo..",
+      "................"
+     ]
+    ],
+    "sit": [
+     "................",
+     "................",
+     ".....oooooo.....",
+     "...ooBBBBBBoo...",
+     "..oBBBBBBBBBBo..",
+     ".oBBBBBBBBBBBBo.",
+     ".oBBeeBBBBeeBBo.",
+     ".oBBeeBBBBeeBBo.",
+     ".oBkBBBooBBBkBo.",
+     "oBBBBBBooBBBBBBo",
+     "oBBBBBBBBBBBBBBo",
+     ".oBBBBBBBBBBBBo.",
+     ".oLBBBBBBBBBBBo.",
+     ".oBBBBBBBBBBBBo.",
+     ".oBBoBBBoBBBoBo.",
+     "..oo.ooo.ooo.o.."
+    ],
+    "held": [
+     [
+      "................",
+      ".....oooooo.....",
+      "...ooBBBBBBoo...",
+      "..oBBBBBBBBBBo..",
+      ".oBBBBBBBBBBBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBkBBBooBBBkBo.",
+      "oBBBBBBooBBBBBBo",
+      "oBBBBBBBBBBBBBBo",
+      ".oBBBBBBBBBBBBo.",
+      ".oLBBBBBBBBBBBo.",
+      ".oBBBBBBBBBBBBo.",
+      ".oBBoBBBoBBBoBo.",
+      "..oo.ooo.ooo.o..",
+      "................"
+     ],
+     [
+      "................",
+      ".....oooooo.....",
+      "...ooBBBBBBoo...",
+      "..oBBBBBBBBBBo..",
+      ".oBBBBBBBBBBBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBBeeBBBBeeBBo.",
+      ".oBkBBBooBBBkBo.",
+      "oBBBBBBooBBBBBBo",
+      "oBBBBBBBBBBBBBBo",
+      ".oBBBBBBBBBBBBo.",
+      ".oLBBBBBBBBBBBo.",
+      ".oBBBBBBBBBBBBo.",
+      ".oBoBBBoBBBoBBo.",
+      "..o.ooo.ooo.oo..",
+      "................"
+     ]
+    ]
+   },
+   "walkHop": [
+    0,
+    -1
+   ],
+   "breathRow": {
+    "stand": 10,
+    "sit": 11
+   },
+   "anchors": {
+    "hand": {
+     "x": 8,
+     "y": 1
+    },
+    "helm": {
+     "x": 4,
+     "y": -2
+    },
+    "lupe": {
+     "x": 13,
+     "y": 8
+    },
+    "sweat": {
+     "x": 13,
+     "y": 2
+    }
+   },
+   "glassColor": "#2b2f5c",
+   "crt": false
+  },
+  {
+   "id": "saugi",
+   "num": 14,
+   "name": "Brummi",
+   "art": "Saugroboter",
+   "w": 20,
+   "h": 12,
+   "palette": {
+    "o": "#14161c",
+    "B": "#4a5060",
+    "L": "#9aa3b5",
+    "D": "#2b2f3a",
+    "p": "#ff4d4d",
+    "e": "#58e6ff",
+    "k": "B",
+    "lid": "B",
+    "shut": "e",
+    "w": "#ffffff"
+   },
+   "frames": {
+    "stand": [
+     "....................",
+     "........opo.........",
+     ".....oooooooooo.....",
+     "...ooBBBBBBBBBBoo...",
+     "..oBBBBBBBBBBBBBBo..",
+     ".oBBBBeeBBBBeeBBBBo.",
+     ".oBBBBeeBBBBeeBBBBo.",
+     ".oBBBkBBBooBBBkBBBo.",
+     "oDDDDDDDDDDDDDDDDDDo",
+     ".oDLDDDDDDDDDDDDLDo.",
+     "..oooooooooooooooo..",
+     "...oo..........oo..."
+    ],
+    "walk": [
+     [
+      "....................",
+      "........opo.........",
+      ".....oooooooooo.....",
+      "...ooBBBBBBBBBBoo...",
+      "..oBBBBBBBBBBBBBBo..",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBkBBBooBBBkBBBo.",
+      "oDDDDDDDDDDDDDDDDDDo",
+      ".oDLDDDDDDDDDDDDLDo.",
+      "..oooooooooooooooo..",
+      "..o.o..........o.o.."
+     ],
+     [
+      "....................",
+      "........opo.........",
+      ".....oooooooooo.....",
+      "...ooBBBBBBBBBBoo...",
+      "..oBBBBBBBBBBBBBBo..",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBkBBBooBBBkBBBo.",
+      "oDDDDDDDDDDDDDDDDDDo",
+      ".oDLDDDDDDDDDDDDLDo.",
+      "..oooooooooooooooo..",
+      "...oo..........oo..."
+     ]
+    ],
+    "sit": [
+     "....................",
+     "....................",
+     "........opo.........",
+     ".....oooooooooo.....",
+     "...ooBBBBBBBBBBoo...",
+     "..oBBBBBBBBBBBBBBo..",
+     ".oBBBBeeBBBBeeBBBBo.",
+     ".oBBBBeeBBBBeeBBBBo.",
+     ".oBBBkBBBooBBBkBBBo.",
+     "oDDDDDDDDDDDDDDDDDDo",
+     ".oDLDDDDDDDDDDDDLDo.",
+     "..oooooooooooooooo.."
+    ],
+    "held": [
+     [
+      "....................",
+      "........opo.........",
+      ".....oooooooooo.....",
+      "...ooBBBBBBBBBBoo...",
+      "..oBBBBBBBBBBBBBBo..",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBkBBBooBBBkBBBo.",
+      "oDDDDDDDDDDDDDDDDDDo",
+      ".oDLDDDDDDDDDDDDLDo.",
+      "..oooooooooooooooo..",
+      "...o..........o....."
+     ],
+     [
+      "....................",
+      "........opo.........",
+      ".....oooooooooo.....",
+      "...ooBBBBBBBBBBoo...",
+      "..oBBBBBBBBBBBBBBo..",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBBeeBBBBeeBBBBo.",
+      ".oBBBkBBBooBBBkBBBo.",
+      "oDDDDDDDDDDDDDDDDDDo",
+      ".oDLDDDDDDDDDDDDLDo.",
+      "..oooooooooooooooo..",
+      "....o........o......"
+     ]
+    ]
+   },
+   "walkHop": [
+    0,
+    0
+   ],
+   "breathRow": {
+    "stand": 4,
+    "sit": 5
+   },
+   "anchors": {
+    "hand": {
+     "x": 10,
+     "y": 2
+    },
+    "helm": {
+     "x": 6,
+     "y": -1
+    },
+    "lupe": {
+     "x": 17,
+     "y": 5
+    },
+    "sweat": {
+     "x": 16,
+     "y": 2
+    }
+   },
+   "glassColor": "#d9dde6",
+   "crt": false
   }
  ],
  "overlays": {

@@ -330,6 +330,225 @@ const braces = {
   glassColor: '#9a5cd6', crt: false,
 };
 
+// ---------- 9  Henkel (Kaffeetasse) 18x16 ----------
+const TA_STEAM_A = ["....S...S.........", ".....S...S........", "....S...S........."];
+const TA_STEAM_B = [".....S...S........", "....S...S.........", ".....S...S........"];
+const TA_BODY = [
+  ".oooooooooooo.....",
+  ".oDDDDDDDDDDo.....",
+  ".oBBBBBBBBBBoooo..",
+  ".oBBeeBBeeBBo..o..",
+  ".oBBeeBBeeBBo..o..",
+  ".oBkBBooBBkBo..o..",
+  ".oBBBBBBBBBBoooo..",
+  ".oLBBBBBBBBBo.....",
+  ".oLBBBBBBBBBo.....",
+  "..oBBBBBBBBo......",
+  "...oooooooo.......",
+];
+const TL = "....oo...oo.......";
+const mug = {
+  id: 'tasse', num: 9, name: 'Henkel', art: 'Kaffeetasse', w: 18, h: 16,
+  palette: { o: '#2b2030', B: '#3fa7a0', L: '#8fdcd5', D: '#6b3f22', S: '#aab4c4', e: '#2b2030', k: 'B', lid: 'B', shut: 'e', w: '#ffffff' },
+  frames: {
+    stand: [...TA_STEAM_A, ...TA_BODY, TL, TL],
+    walk: [
+      [...TA_STEAM_A, ...TA_BODY, TL, "...oo.....oo......"],
+      [...TA_STEAM_B, ...TA_BODY, TL, TL],
+      [...TA_STEAM_A, ...TA_BODY, TL, ".....oo.oo........"],
+      [...TA_STEAM_B, ...TA_BODY, TL, TL],
+    ],
+    sit: [B(18), B(18), ...TA_STEAM_A, ...TA_BODY],
+    held: [
+      [...TA_STEAM_A, ...TA_BODY, "....o....o........", "....o....o........"],
+      [...TA_STEAM_B, ...TA_BODY, "....o....o........", ".....o...o........"],
+    ],
+  },
+  walkHop: [0, -1, 0, -1],
+  breathRow: { stand: 11, sit: 13 },
+  anchors: { hand: { x: 6, y: 3 }, helm: { x: 3, y: -1 }, lupe: { x: 13, y: 10 }, sweat: { x: 12, y: 4 } },
+  glassColor: '#2b2030', crt: false,
+};
+
+// ---------- 10  Quietsch (Gummiente) 20x15 ----------
+const EN = [
+  "....................",
+  "..........oooo......",
+  ".........oBBBBo.....",
+  "........oBBBBBBo....",
+  "........oBeeBeeBo...",
+  "........oBeeBeeBo...",
+  "........okBBBBBkoppo",
+  "........oBBBBBBBoppo",
+  ".oo......oBBBBBBo...",
+  ".oBoooooooBBBBBBo...",
+  ".oBBBBBBBBBBBBBBBo..",
+  ".oBBDDDDDBBBBBBBBo..",
+  ".oBBBDDDDBBBBBBBBo..",
+  "..oBBBBBBBBBBBBBo...",
+  "...ooooooooooooo....",
+];
+const EN_WAG = withRows(EN, { 7: ".o......oBBBBBBBoppo", 8: "..o......oBBBBBBo..." });
+const EN_SIT = [B(20), ...EN.slice(0, 10), ...EN.slice(11)];
+const duck = {
+  id: 'ente', num: 10, name: 'Quietsch', art: 'Gummiente', w: 20, h: 15,
+  palette: { o: '#4a3410', B: '#ffd23f', L: '#fff3b0', D: '#e0a800', p: '#ff8a1f', e: '#2a1d06', k: 'B', lid: 'B', shut: 'e', w: '#ffffff' },
+  frames: {
+    stand: EN,
+    walk: [EN, EN_WAG],
+    sit: EN_SIT,
+    held: [EN, withRows(EN, { 6: "........okBBBBBkoppp", 7: "........oBBBBBBBo...", 8: ".oo......oBBBBBBoppo" })],
+  },
+  walkHop: [0, -2],
+  breathRow: { stand: 10, sit: 12 },
+  anchors: { hand: { x: 12, y: 1 }, helm: { x: 8, y: -2 }, lupe: { x: 16, y: 9 }, sweat: { x: 16, y: 2 } },
+  glassColor: '#2a1d06', crt: false,
+};
+
+// ---------- 11  Krümel (Toast) 16x16 ----------
+const TO = [
+  "................",
+  "...oooooooooo...",
+  "..oDDDDDDDDDDo..",
+  ".oDLLLLLLBBBLDo.",
+  ".oDLLLLLLBBBLDo.",
+  ".oDDLLLLLLLLDDo.",
+  "..oDLLLLLLLLDo..",
+  "..oDLeeLLeeLDo..",
+  "..oDLeeLLeeLDo..",
+  "..oDkLLooLLkDo..",
+  "..oDLLLLLLLLDo..",
+  "..oDLLLLLLLLDo..",
+  "..oDDDDDDDDDDo..",
+  "...oooooooooo...",
+];
+const TOL = ".....o....o.....", TOF = "....oo....oo....";
+const toast = {
+  id: 'toast', num: 11, name: 'Krümel', art: 'Toastscheibe', w: 16, h: 16,
+  palette: { o: '#3b2412', D: '#b8702f', L: '#f5d9a3', B: '#ffe066', e: '#2b1a0c', k: 'L', lid: 'L', shut: 'e', w: '#ffffff' },
+  frames: {
+    stand: [...TO, TOL, TOF],
+    walk: [
+      [...TO, TOL, "...oo......oo..."],
+      [...TO, TOL, TOF],
+      [...TO, TOL, "......oooo......"],
+      [...TO, TOL, TOF],
+    ],
+    sit: [B(16), B(16), ...TO],
+    held: [
+      [...TO, TOL, TOL],
+      [...TO, TOL, "......o..o......"],
+    ],
+  },
+  walkHop: [0, -1, 0, -1],
+  breathRow: { stand: 10, sit: 12 },
+  anchors: { hand: { x: 8, y: 1 }, helm: { x: 4, y: -2 }, lupe: { x: 12, y: 9 }, sweat: { x: 14, y: 5 } },
+  glassColor: '#2b1a0c', crt: false,
+};
+
+// ---------- 12  Stachel (Kaktus im Topf) 16x16 ----------
+const KA = [
+  ".......pp.......",
+  "......oooo......",
+  ".....oBBBBo.....",
+  "....oBBLBBBo....",
+  ".oo.oBBBBBBo.oo.",
+  "oBLooBBBBBBooBLo",
+  "oBBooeeBBeeooBBo",
+  "oBBooeeBBeeooBBo",
+  ".oBBoBkBBkBoBBo.",
+  "..oooBBooBBooo..",
+  "....oBLBBBBo....",
+  "..oDDDDDDDDDDo..",
+  "...oDDDDDDDDo...",
+  "...oDDDDDDDDo...",
+  "....oooooooo....",
+];
+const cactus = {
+  id: 'kaktus', num: 12, name: 'Stachel', art: 'Kaktus im Topf', w: 16, h: 16,
+  palette: { o: '#1f3320', B: '#5bb35b', L: '#e9f7c9', D: '#c8673a', p: '#ff6fa8', e: '#13210f', k: 'B', lid: 'B', shut: 'e', w: '#ffffff' },
+  frames: {
+    stand: [...KA, ".....o....o....."],
+    walk: [
+      [...KA, "....o......o...."],
+      [...KA, ".....o....o....."],
+      [...KA, "......o..o......"],
+      [...KA, ".....o....o....."],
+    ],
+    sit: [B(16), ...KA],
+    held: [
+      [...KA, ".....o....o....."],
+      [...KA, "......o..o......"],
+    ],
+  },
+  walkHop: [0, -1, 0, -1],
+  breathRow: { stand: 10, sit: 11 },
+  anchors: { hand: { x: 8, y: 1 }, helm: { x: 4, y: -1 }, lupe: { x: 12, y: 8 }, sweat: { x: 12, y: 2 } },
+  glassColor: '#13210f', crt: false,
+};
+
+// ---------- 13  Buhu (Gespenst) 16x16 ----------
+const GE_BODY = [
+  "................",
+  ".....oooooo.....",
+  "...ooBBBBBBoo...",
+  "..oBBBBBBBBBBo..",
+  ".oBBBBBBBBBBBBo.",
+  ".oBBeeBBBBeeBBo.",
+  ".oBBeeBBBBeeBBo.",
+  ".oBkBBBooBBBkBo.",
+  "oBBBBBBooBBBBBBo",
+  "oBBBBBBBBBBBBBBo",
+  ".oBBBBBBBBBBBBo.",
+  ".oLBBBBBBBBBBBo.",
+  ".oBBBBBBBBBBBBo.",
+];
+const HEM_A = [".oBBoBBBoBBBoBo.", "..oo.ooo.ooo.o.."];
+const HEM_B = [".oBoBBBoBBBoBBo.", "..o.ooo.ooo.oo.."];
+const ghost = {
+  id: 'geist', num: 13, name: 'Buhu', art: 'Gespenst', w: 16, h: 16,
+  palette: { o: '#2b2f5c', B: '#eef0ff', L: '#ffffff', D: '#c9cdf0', e: '#2b2f5c', k: 'B', lid: 'B', shut: 'e', w: '#ffffff' },
+  frames: {
+    stand: [...GE_BODY, ...HEM_A, B(16)],
+    walk: [[...GE_BODY, ...HEM_A, B(16)], [...GE_BODY, ...HEM_B, B(16)]],
+    sit: [B(16), B(16), ...GE_BODY.slice(1), ...HEM_A],
+    held: [[...GE_BODY, ...HEM_A, B(16)], [...GE_BODY, ...HEM_B, B(16)]],
+  },
+  walkHop: [0, -1],
+  breathRow: { stand: 10, sit: 11 },
+  anchors: { hand: { x: 8, y: 1 }, helm: { x: 4, y: -2 }, lupe: { x: 13, y: 8 }, sweat: { x: 13, y: 2 } },
+  glassColor: '#2b2f5c', crt: false,
+};
+
+// ---------- 14  Brummi (Saugroboter) 20x12 ----------
+const SA = [
+  "....................",
+  "........opo.........",
+  ".....oooooooooo.....",
+  "...ooBBBBBBBBBBoo...",
+  "..oBBBBBBBBBBBBBBo..",
+  ".oBBBBeeBBBBeeBBBBo.",
+  ".oBBBBeeBBBBeeBBBBo.",
+  ".oBBBkBBBooBBBkBBBo.",
+  "oDDDDDDDDDDDDDDDDDDo",
+  ".oDLDDDDDDDDDDDDLDo.",
+  "..oooooooooooooooo..",
+];
+const robot = {
+  id: 'saugi', num: 14, name: 'Brummi', art: 'Saugroboter', w: 20, h: 12,
+  palette: { o: '#14161c', B: '#4a5060', L: '#9aa3b5', D: '#2b2f3a', p: '#ff4d4d', e: '#58e6ff', k: 'B', lid: 'B', shut: 'e', w: '#ffffff' },
+  frames: {
+    stand: [...SA, "...oo..........oo..."],
+    walk: [[...SA, "..o.o..........o.o.."], [...SA, "...oo..........oo..."]],
+    sit: [B(20), ...SA],
+    held: [[...SA, "...o..........o....."], [...SA, "....o........o......"]],
+  },
+  walkHop: [0, 0],
+  breathRow: { stand: 4, sit: 5 },
+  anchors: { hand: { x: 10, y: 2 }, helm: { x: 6, y: -1 }, lupe: { x: 17, y: 5 }, sweat: { x: 16, y: 2 } },
+  glassColor: '#d9dde6', crt: false,
+};
+
 const overlays = {
   cheekPink: '#ff7fa6',
   heart: { map: ["rr.rr", "rrrrr", ".rrr.", "..r.."], colors: { r: '#ff5c8a' } },
@@ -376,7 +595,7 @@ const rules = {
   growth: "Baby = Pixelgröße 2 + Eierschale über den unteren 4-5 Zeilen (Zickzack-Kante, overlays.eggshell), Jung = 3, Erwachsen = 4 (bei gleicher Darstellung).",
 };
 
-const data = { version: 1, creatures: [cat, slime, octo, bit, sparrow, mushroom, axolotl, braces], overlays, variants, eyeModes, rules };
+const data = { version: 1, creatures: [cat, slime, octo, bit, sparrow, mushroom, axolotl, braces, mug, duck, toast, cactus, ghost, robot], overlays, variants, eyeModes, rules };
 
 // ---------- Prüfung ----------
 let errors = 0;
