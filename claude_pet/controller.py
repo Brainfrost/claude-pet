@@ -22,9 +22,11 @@ from .tray import Tray
 from . import diary as diary_mod
 from . import treasure
 from .book import BookWindow
+from .bughunt import BugHunt
 from .dreams import LABEL as DREAM_LABEL, Dreamer
 from .seasons import Weather
-from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, DreamCloud, PetWindow, SeasonOverlay, TabFx
+from .windows import (BallWindow, BiteFx, Bubble, DebugOverlay, DreamCloud, HuntOverlay, PetWindow,
+                      SeasonOverlay, TabFx)
 from .world import World
 
 log = logging.getLogger(__name__)
@@ -67,6 +69,8 @@ class Controller:
         self.diary_win = None
         self.dreamer = Dreamer()
         self.treasure_win = None
+        self.hunt = None
+        self.hunt_win = HuntOverlay(self)
         self.dream_win = DreamCloud(self.dreamer)
         self._diary_busy = False
         self.season_win = SeasonOverlay(self.weather)
@@ -125,6 +129,7 @@ class Controller:
                        self.prof["personality"])
         self.brain = Brain(self.pet, self.prof["personality"])
         self.brain.on_ate = self.on_ate
+        self.brain.on_catch = self.on_catch
         self.brain.on_fetched = self.on_fetched
         self.brain.ball = getattr(self, "ball", None)
         self.pet.daypart = daily.daypart()
@@ -353,6 +358,81 @@ class Controller:
             back = self.work.take_return()
             if back is not None and back >= 10 and random.random() < 0.7:
                 self.speech.canned("welcome", force=True)
+
+    # ================================================================ Bug-Jagd
+    def start_hunt(self):
+        if self.hunt is not None or not self.world.ok or self.quiet_reason or not self.world.snap.panes:
+            return
+        pane = self.pet.pane if self.pet.pane is not None else 0
+        pane = min(pane, len(self.world.snap.panes) - 1)
+        if self.pet.state == "hidden" and self.brain.home is not None:
+            i = self.brain._find(self.world, self.brain.home)
+            if i is not None:
+                self.brain._emerge(self.world, i)
+        if self.pet.state in ("sleep", "sit"):
+            self.pet.state, self.pet.timer = "idle", 0.5
+        self.hunt = BugHunt(pane)
+        self.pet.effort = 0.25
+        self.pet.energy = max(self.pet.energy, 60.0)        # Jagdfieber: auch ein müdes Pet macht mit
+        self.hunt_win.sync(self.world.snap.panes[pane].rect)
+        self.hunt_win.show()
+        self.speech.canned("hunt_start", force=True)
+        log.info("Bug-Jagd gestartet")
+
+    def _tick_hunt(self, dt):
+        h = self.hunt
+        if h is None:
+            return
+        if not self.world.ok or h.pane >= len(self.world.snap.panes):
+            self._end_hunt(silent=True)
+            return
+        h.step(dt, self.world)
+        g = self.brain.goal
+        if (not g or g[0] != "hunt") and self.pet.grounded and self.pet.state not in ("eat", "held", "hidden"):
+            target = h.nearest(self.pet.x, self.pet.y)
+            if target is not None:
+                if g:
+                    self.brain.goal, self.pet.busy = None, False
+                self.brain.set_goal(("hunt", target))
+        self.hunt_win.sync(self.world.snap.panes[h.pane].rect)
+        if h.finished and not any(b.splat > 0 for b in h.bugs):
+            self._end_hunt()
+
+    def hunt_click(self, x, y):
+        if self.hunt is None:
+            return
+        b = self.hunt.hit(x, y, radius=7 * max(2, self.pet.px - 1) * 1.2)
+        if b is not None:
+            self.diary.count("bugs")
+
+    def on_catch(self, bug):
+        if self.hunt is None or not self.hunt.catch(bug):
+            return False
+        self.diary.count("bugs")
+        return True
+
+    def _end_hunt(self, silent=False):
+        h, self.hunt = self.hunt, None
+        self.pet.effort = 1.0
+        self.hunt_win.hide()
+        if self.brain.goal and self.brain.goal[0] == "hunt":
+            self.brain.goal, self.pet.busy = None, False
+        if silent or h is None:
+            return
+        du, pet = h.score["du"], h.score["pet"]
+        res = h.result()
+        best = self.prof.get("bughunt_best", 0)
+        if du + pet > best:
+            self.prof["bughunt_best"] = du + pet
+            profile.save(self.prof)
+        if res == "won":
+            self.pet.celebrate()
+        elif res == "lost":
+            self.pet.perform("hinsetzen")
+        else:
+            self.pet.perform("freuen")
+        self.speech.canned("hunt_" + res, force=True, du=du, pet=pet)
+        log.info("Bug-Jagd vorbei: du %d, Pet %d (Rekord %d)", du, pet, max(best, du + pet))
 
     # ================================================================ Schatzkiste
     def open_treasure(self):
@@ -602,6 +682,8 @@ class Controller:
         self.pet.on_world(self.world)
         self.reactions.on_world(self.world)
         self.weather.on_world(self.world)
+        if self.hunt is not None:
+            self.hunt.on_world(self.world)
 
     def screen_floor(self, x):
         g = self._screen_near(x, self.pet.y - 1).availableGeometry()
@@ -636,6 +718,8 @@ class Controller:
             self.ball_win.hide()
             self.season_win.hide()
             self.dream_win.hide()
+            if self.hunt is not None:
+                self._end_hunt(silent=True)
             self._adapt_rate(pet)
             return
         if pet.state in ("idle", "sit", "happy", "talk") and abs(cursor[0] - pet.x) > pet.W * 1.5:
@@ -656,6 +740,7 @@ class Controller:
         pet.step(dt, self.world, self.screen_floor, self.vbounds(), cursor)
         self._tick_ball(dt)
         self._tick_weather(dt)
+        self._tick_hunt(dt)
         self._play_tab_effects()
         self._update_visibility(now)
         self.place()
@@ -729,7 +814,8 @@ class Controller:
     def _talk(self, pet):
         """Während die Sprechblase zu sehen ist, bleibt das Pet stehen und redet; danach macht es,
         was Haiku als Aktion vorgeschlagen hat."""
-        speaking = bool(self.bubble.text) and self.bubble.isVisible()
+        # bei der Bug-Jagd redet es im Laufen weiter
+        speaking = bool(self.bubble.text) and self.bubble.isVisible() and self.hunt is None
         if speaking:
             if pet.state != "talk":
                 pet.start_talking()           # in der Luft: klappt nach der Landung
@@ -754,7 +840,7 @@ class Controller:
         if self.quiet_reason:
             iv = 250
         elif (st in AIR or st in TRANSITION or st in ("held", "cling", "walk", "fly") or pet.effects
-              or pet.squash > 0 or self.bubble.isVisible() or self.debug_on
+              or pet.squash > 0 or self.bubble.isVisible() or self.debug_on or self.hunt is not None
               or (self.ball is not None and not (self.ball.resting and self.ball.vx == 0))):
             iv = 16
         elif st in ("idle", "happy") or self.weather.active or self.dreamer.current is not None:

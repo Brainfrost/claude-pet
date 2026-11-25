@@ -109,6 +109,30 @@ CANNED = {
         "verspielt": ["JACKPOT! Ein {rarity}es {word}!", "{word}! {word}! Neuer Schatz! Juhuu!"],
         "aengstlich": ["E-ein {rarity}es {word}… ich hab's tatsächlich erwischt!", "{word}… ganz neu für mich. Ich heb's gut auf."],
     },
+    "hunt_start": {
+        "faul": ["Käferjagd? Na gut. Aber nur 30 Sekunden.", "Ich jag mit. Langsam."],
+        "neugierig": ["Käfer! Überall Käfer! Los geht's!", "Wer fängt mehr? Ich will's wissen!"],
+        "verspielt": ["JAGD! Die gehören alle mir!", "Auf die Plätze, fertig, KÄFER!"],
+        "aengstlich": ["K-Käfer?! Okay … ich bin mutig. Glaub ich.", "Ich versuch's … die krabbeln so!"],
+    },
+    "hunt_won": {
+        "faul": ["{pet} zu {du}. Hätte nicht gedacht, dass ich so schnell bin.", "Gewonnen. Jetzt brauch ich ein Nickerchen."],
+        "neugierig": ["{pet} zu {du} für mich! Revanche?", "Ha, {pet} Käfer! Ich kenn jetzt ihre Tricks."],
+        "verspielt": ["SIEG! {pet} zu {du}! Nochmal, nochmal!", "{pet} zu {du}! Ich bin der Käferkönig!"],
+        "aengstlich": ["Ich hab gewonnen?! {pet} zu {du}! Wow!", "{pet} zu {du} … ich war echt mutig, oder?"],
+    },
+    "hunt_lost": {
+        "faul": ["{du} zu {pet}. Ich hab dich gewinnen lassen.", "Du warst schneller. War mir zu anstrengend."],
+        "neugierig": ["{du} zu {pet} – wie klickst du so schnell?!", "Respekt! {du} Käfer. Nächstes Mal krieg ich dich."],
+        "verspielt": ["Nööö! {du} zu {pet}! REVANCHE!", "{du} zu {pet}… du Käferschreck!"],
+        "aengstlich": ["{du} zu {pet} … du bist richtig gut darin.", "Danke, dass du die meisten erwischt hast."],
+    },
+    "hunt_draw": {
+        "faul": ["{du} zu {pet}. Unentschieden. Perfekt, keiner muss sich anstrengen.", "Gleichstand. Passt."],
+        "neugierig": ["Unentschieden, {du} zu {pet}! Wer gewinnt das Stechen?", "{du} zu {pet} – exakt gleich!"],
+        "verspielt": ["{du} zu {pet}! Gleichstand! Nochmal!", "Unentschieden?! Das schreit nach Revanche!"],
+        "aengstlich": ["{du} zu {pet} – wir sind ein gutes Team!", "Gleichstand … das ist doch schön, oder?"],
+    },
     "morning": {
         "faul": ["Mrrh… schon Morgen? Guten Morgen…", "Guten Morgen. Kaffee zuerst."],
         "neugierig": ["Guten Morgen! Was bauen wir heute?", "Morgen! Ich bin schon ganz gespannt!"],

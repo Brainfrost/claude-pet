@@ -14,6 +14,7 @@ from .treasure import FOOD, rarity   # alle Schatz-Wörter sind Futter
 
 log = logging.getLogger(__name__)
 
+HUNT_RUN = {"verspielt": 1.7, "neugierig": 1.5, "aengstlich": 1.25, "faul": 0.95}   # Tempo bei der Bug-Jagd
 BALL_INTEREST = {"verspielt": 1.0, "neugierig": 0.8, "aengstlich": 0.4, "faul": 0.15}
 EAT_EVERY = {"verspielt": (20, 50), "neugierig": (25, 60), "aengstlich": (60, 150), "faul": (90, 240)}
 # Nach dem Fressen satt (Sekunden): in der Zeit wird nichts gefressen, auch nicht auf Maus-Hinweis
@@ -57,6 +58,7 @@ class Brain:
         self.news = False              # neuer Text erschienen (für die Neugier)
         self.sated_t = 0.0             # so lange (s) ist es noch satt
         self.on_ate = None             # Callback(word, platform, start) – Biss anzeigen, zählen
+        self.on_catch = None           # Callback(bug) – Käfer bei der Bug-Jagd erwischt
         self.on_fetched = None         # Callback() – Ball zurückgebracht
 
     # ------------------------------------------------------------ Tabs finden
@@ -208,7 +210,7 @@ class Brain:
             if self.goal_t > GOAL_TIMEOUT:            # aufgeben, nicht ewig hinterherjagen
                 self.goal, pet.busy = None, False
                 return
-            if self.goal[0] in ("ball", "eat"):
+            if self.goal[0] in ("ball", "eat", "hunt"):
                 self._pursue_play(world)
             elif world.ok and world.snap.tabs:
                 self._pursue(world)
@@ -311,6 +313,21 @@ class Brain:
             self.goal, pet.busy = None, False
             return
         pet.busy = True
+        if self.goal[0] == "hunt":
+            bug = self.goal[1]
+            if not bug.alive:
+                self.goal, pet.busy = None, False
+                return
+            tx, ty = bug.target
+            if bug.hop is None and abs(pet.y - bug.y) < 3 and abs(pet.x - bug.x) < pet.W * 0.65:
+                self.goal, pet.busy = None, False
+                pet.facing = 1 if bug.x >= pet.x else -1
+                if self.on_catch and self.on_catch(bug):
+                    pet.eat()
+                    pet.timer = 0.8                         # kurz schnappen, weiterjagen
+                return
+            self._move_to(world, tx, ty, run=HUNT_RUN.get(self.pers, 1.5) * (0.7 if pet.tired else 1.0))
+            return
         if self.goal[0] == "eat":
             spot = self._food_spot(world, *self.goal[1:])
             if spot is None:
@@ -368,7 +385,7 @@ class Brain:
         p = min(below, key=lambda q: q.y)
         return min(max(cx, p.x0 + pet.W * 0.3), p.x1 - pet.W * 0.3), p.y
 
-    def _move_to(self, world, tx, ty):
+    def _move_to(self, world, tx, ty, run=1.8):
         pet = self.pet
         # nur Sprünge zählen, nach denen es dem Ziel nicht näher gekommen ist
         dist = abs(pet.x - tx) + 3 * abs(pet.y - ty)
@@ -378,7 +395,7 @@ class Brain:
         self._goal_best = dist if best is None else min(best, dist)
         if abs(pet.y - ty) < 3:
             if pet.state != "walk" or abs(pet.target_x - tx) > pet.W * 0.5:
-                pet.walk_to(tx, run=1.8)
+                pet.walk_to(tx, run=run)
         else:
             self.goal_jumps = getattr(self, "goal_jumps", 0) + 1
             if abs(tx - pet.x) > 10 * pet.W or pet.y - ty > 6 * pet.line_h:

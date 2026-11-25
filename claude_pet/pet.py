@@ -79,6 +79,7 @@ class Pet:
         self.daypart = "tag"        # morgen | tag | abend | nacht (setzt der Controller)
         self.carrying = False       # trägt gerade den Ball im Maul
         self.energy = 100.0         # 0..100 – sinkt durch Toben, steigt durch Sitzen/Schlafen
+        self.effort = 1.0           # Faktor für den Energieverbrauch (Bug-Jagd: Spiel strengt weniger an)
         self.set_scale(24)
 
     # ------------------------------------------------------------ Maßstab
@@ -322,7 +323,7 @@ class Pet:
             cost *= 1.2
         elif self.daypart == "nacht":
             cost *= 1.5
-        self.energy = max(0.0, self.energy - amount * cost)
+        self.energy = max(0.0, self.energy - amount * cost * self.effort)
 
     def _recover(self, dt, state):
         if state not in REGEN and state != "held":

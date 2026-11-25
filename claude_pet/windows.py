@@ -448,6 +448,83 @@ class Bubble(_Overlay):
         p.end()
 
 
+# ===================================================================== Bug-Jagd
+class HuntOverlay(QWidget):
+    """Spielfeld über dem Pane: Käfer sind anklickbar, der Rest lässt Klicks durch (Alpha 0)."""
+
+    def __init__(self, ctl):
+        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
+                         | Qt.WindowType.Tool | Qt.WindowType.WindowDoesNotAcceptFocus)
+        self.ctl = ctl
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.setCursor(Qt.CursorShape.CrossCursor)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        winapi.add_exstyle(int(self.winId()), winapi.WS_EX_NOACTIVATE | winapi.WS_EX_TOOLWINDOW)
+        winapi.exclude_from_capture(int(self.winId()))
+
+    def sync(self, rect):
+        l, t, r, b = rect
+        if self.geometry() != QRect(int(l), int(t), int(r - l), int(b - t)):
+            self.setGeometry(int(l), int(t), int(r - l), int(b - t))
+        self.update()
+
+    def mousePressEvent(self, e):
+        g = e.globalPosition()
+        self.ctl.hunt_click(g.x(), g.y())
+
+    def paintEvent(self, e):
+        hunt = self.ctl.hunt
+        if hunt is None:
+            return
+        from .dreams import ICONS
+        rows, colors = ICONS["kaefer"]
+        s = max(2, self.ctl.pet.px - 1)
+        ox, oy = self.geometry().x(), self.geometry().y()
+        p = QPainter(self)
+        p.setPen(Qt.PenStyle.NoPen)
+        for b in hunt.bugs:
+            cx, by = b.x - ox, b.y - oy
+            if b.alive:
+                # unsichtbarer Klick-Hof (Alpha 1), damit man die kleinen Käfer gut trifft
+                p.setBrush(QColor(0, 0, 0, 1))
+                r = 7 * s
+                p.drawEllipse(QRectF(cx - r, by - 3.5 * s - r, 2 * r, 2 * r))
+                leg = int(b.t * 12) % 2
+                for y, row in enumerate(rows):
+                    for x, ch in enumerate(row):
+                        if ch in colors:
+                            xx = x if b.vx >= 0 else 6 - x
+                            dy = (leg if y in (0, 1) else 0)
+                            p.fillRect(QRectF(cx - 3.5 * s + xx * s, by - 7 * s + (y + dy) * s, s, s),
+                                       QColor(colors[ch]))
+            else:
+                k = 1 - b.splat / 0.6
+                c = QColor("#7CFC00" if b.by == "du" else "#ffd166")
+                c.setAlpha(int(255 * (1 - k)))
+                for i in range(6):
+                    a = i * 1.047
+                    d = (2 + k * 8) * s
+                    p.fillRect(QRectF(cx + math.cos(a) * d, by - 3 * s + math.sin(a) * d * 0.7, s, s), c)
+        # Anzeige oben rechts: Zeit und Punkte
+        name = self.ctl.prof["name"]
+        text = f"🐞 {int(hunt.left + 0.99)} s   Du {hunt.score['du']} : {hunt.score['pet']} {name}"
+        f = QFont("Segoe UI")
+        f.setPixelSize(max(14, 5 * s))
+        f.setBold(True)
+        fm = QFontMetrics(f)
+        w, h = fm.horizontalAdvance(text) + 24, fm.height() + 12
+        x = self.width() - w - 16
+        p.setBrush(QColor(20, 18, 31, 225))
+        p.drawRoundedRect(QRectF(x, 8, w, h), 8, 8)
+        p.setFont(f)
+        p.setPen(QColor("#ece9f7"))
+        p.drawText(QRectF(x, 8, w, h), Qt.AlignmentFlag.AlignCenter, text)
+        p.end()
+
+
 # ===================================================================== Träume
 class DreamCloud(_Overlay):
     """Gedankenwolke über dem schlafenden Pet."""

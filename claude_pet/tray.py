@@ -35,6 +35,7 @@ class Tray:
         self._action(m, "Was denkst du gerade?", lambda: ctl.speech.ask_now(ctl.world, ctl.pet.pane or 0))
         self._action(m, "Ausflug machen!", lambda: setattr(ctl.pet, "want_adventure", True))
         self._action(m, "Ball werfen", ctl.throw_ball)
+        self._action(m, "Bug-Jagd (30 Sekunden)!", ctl.start_hunt)
         self.a_noball = self._action(m, "Ball wegräumen", ctl.remove_ball)
         self._action(m, "Pet zu mir holen", ctl.summon)
         self._action(m, "Tagebuch …", ctl.open_diary)
