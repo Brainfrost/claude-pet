@@ -6,11 +6,18 @@ Ziele (self.goal):
 """
 import logging
 import random
+import re
 from collections import deque
 
 from .pet import AIR, TRANSITION
 
 log = logging.getLogger(__name__)
+
+# Wörter, die das Pet gern frisst
+FOOD = re.compile(r"\b(bugs?|todos?|fixme|errors?|fehler)\b", re.I)
+BALL_INTEREST = {"verspielt": 1.0, "neugierig": 0.8, "aengstlich": 0.4, "faul": 0.15}
+EAT_EVERY = {"verspielt": (20, 50), "neugierig": (25, 60), "aengstlich": (60, 150), "faul": (90, 240)}
+GOAL_TIMEOUT = 25.0
 
 DECIDE_EVERY = {
     "faul": (60, 150),
@@ -39,6 +46,14 @@ class Brain:
         self.cursor_hist = deque(maxlen=20)
         self.cursor_still_t = 0.0
         self.cling_t = 0.0
+        self.ball = None               # setzt der Controller, solange ein Ball im Spiel ist
+        self.cursor = (0, 0)
+        self.goal_t = 0.0
+        self._ball_check = 0.0
+        self.eat_t = random.uniform(*EAT_EVERY.get(personality, (40, 90))) * 0.5
+        self.food_urge = False         # neues Futter im Text gesehen -> bald essen gehen
+        self.on_ate = None             # Callback(word, platform, start) – Biss anzeigen, zählen
+        self.on_fetched = None         # Callback() – Ball zurückgebracht
 
     # ------------------------------------------------------------ Tabs finden
     def _ref(self, world, i):
@@ -132,8 +147,7 @@ class Brain:
 
     # ------------------------------------------------------------ Takt
     def tick(self, dt, world, cursor):
-        if not world.ok or not world.snap.tabs:
-            return
+        self.cursor = cursor
         self._track_cursor(dt, cursor)
         pet = self.pet
         if pet.state == "cling":
@@ -142,13 +156,157 @@ class Brain:
                 pet.uncling()
             return
         if self.goal:
-            self._pursue(world)
+            self.goal_t += dt
+            if self.goal_t > GOAL_TIMEOUT:            # aufgeben, nicht ewig hinterherjagen
+                self.goal, pet.busy = None, False
+                return
+            if self.goal[0] in ("ball", "eat"):
+                self._pursue_play(world)
+            elif world.ok and world.snap.tabs:
+                self._pursue(world)
+            return
+        if self._maybe_ball(dt):
+            return
+        if not world.ok or not world.snap.tabs:
+            return
+        if self._maybe_eat(dt, world):
             return
         self.decide_t -= dt
         if self.decide_t <= 0:
             self.decide_t = random.uniform(*DECIDE_EVERY.get(self.pers, (30, 60)))
             self._decide(world)
         self._personality_tick(dt, world, cursor)
+
+    def set_goal(self, goal):
+        self.goal, self.goal_t = goal, 0.0
+
+    # ------------------------------------------------------------ Ball & Futter
+    def _maybe_ball(self, dt):
+        pet, ball = self.pet, self.ball
+        if ball is None or not ball.free or not pet.placed or not pet.grounded or pet.busy:
+            return False
+        self._ball_check -= dt
+        if self._ball_check > 0:
+            return False
+        self._ball_check = 1.0
+        if random.random() < BALL_INTEREST.get(self.pers, 0.5):
+            self.set_goal(("ball",))
+            return True
+        pet.facing = 1 if ball.x > pet.x else -1           # schaut wenigstens hin
+        return False
+
+    def _maybe_eat(self, dt, world):
+        pet = self.pet
+        if pet.state == "hidden" or pet.pane is None or not pet.grounded or pet.busy:
+            return False
+        self.eat_t -= dt * (4 if self.food_urge else 1)
+        if self.eat_t > 0:
+            return False
+        self.eat_t = random.uniform(*EAT_EVERY.get(self.pers, (40, 90)))
+        self.food_urge = False
+        food = self._find_food(world)
+        if food:
+            self.set_goal(("eat",) + food)
+            return True
+        return False
+
+    def _find_food(self, world):
+        pet = self.pet
+        best = None
+        for p in world.term_platforms:
+            if p.pane != pet.pane or p.row < 0:
+                continue
+            m = FOOD.search(p.text)
+            if not m:
+                continue
+            d = abs(p.y - pet.y) * 2 + abs(p.x0 - pet.x)
+            if best is None or d < best[0]:
+                best = (d, (p.text, p.row, m.start(), m.group(0)))
+        return best[1] if best else None
+
+    def _food_spot(self, world, text, row, start, word):
+        """Die Zeile mit dem Futter wiederfinden (sie kann inzwischen gescrollt sein)."""
+        cands = [p for p in world.term_platforms if p.text == text and p.row >= 0]
+        if not cands:
+            return None
+        p = min(cands, key=lambda q: abs(q.row - row))
+        cell = world.snap.panes[p.pane].cell_w if world.ok and p.pane < len(world.snap.panes) else 9
+        return p, p.x0 + (start + len(word) / 2) * cell
+
+    def _pursue_play(self, world):
+        pet = self.pet
+        if pet.state in ("held", "hidden"):
+            self.goal, pet.busy = None, False
+            if self.ball is not None and self.ball.carried_by == "pet":
+                self.ball.carried_by, pet.carrying = None, False
+            return
+        if pet.state in AIR or pet.state in TRANSITION or pet.state in ("cling", "eat") or not pet.grounded:
+            return
+        pet.busy = True
+        if self.goal[0] == "eat":
+            spot = self._food_spot(world, *self.goal[1:])
+            if spot is None:
+                self.goal, pet.busy = None, False
+                return
+            p, tx = spot
+            if abs(pet.y - p.y) < 2 and abs(pet.x - tx) < pet.W * 0.3:
+                _, _text, _row, start, word = self.goal
+                pet.facing = 1 if tx >= pet.x else -1
+                self.goal = None
+                pet.eat()
+                if self.on_ate:
+                    self.on_ate(word, p, start)
+                return
+            self._move_to(world, tx, p.y)
+            return
+        # Ball
+        ball = self.ball
+        if ball is None or ball.carried_by == "user":
+            self.goal, pet.busy = None, False
+            pet.carrying = False
+            return
+        if pet.carrying:
+            tx, ty = self._return_spot(world)
+            if abs(pet.y - ty) < 3 and abs(pet.x - tx) < pet.W * 0.8:
+                ball.carried_by, pet.carrying = None, False
+                ball.x = pet.x + pet.facing * pet.W * 0.6
+                ball.y = pet.y - pet.H * 0.5
+                ball.throw(pet.facing * 120 * pet.S, -260 * pet.S)
+                self.goal, pet.busy = None, False
+                pet.react("success")
+                if self.on_fetched:
+                    self.on_fetched()
+                return
+            self._move_to(world, tx, ty)
+            return
+        if not ball.resting:
+            pet.facing = 1 if ball.x > pet.x else -1
+            return
+        if abs(pet.y - ball.bottom) < 4 and abs(pet.x - ball.x) < pet.W * 0.55:
+            ball.carried_by, pet.carrying = "pet", True
+            pet._effect("!", life=0.5)
+            return
+        self._move_to(world, ball.x, ball.bottom)
+
+    def _return_spot(self, world):
+        """Wohin der Ball gebracht wird: auf die Ebene direkt unter deinem Mauszeiger."""
+        cx, cy = self.cursor
+        pet = self.pet
+        below = [p for p in world.platforms if p.covers(cx, pet.W * 0.5) and p.y >= cy]
+        if not below:
+            return pet.x, pet.y
+        p = min(below, key=lambda q: q.y)
+        return min(max(cx, p.x0 + pet.W * 0.3), p.x1 - pet.W * 0.3), p.y
+
+    def _move_to(self, world, tx, ty):
+        pet = self.pet
+        if abs(pet.y - ty) < 3:
+            if pet.state != "walk" or abs(pet.target_x - tx) > pet.W * 0.5:
+                pet.walk_to(tx, run=1.8)
+        elif abs(tx - pet.x) > 10 * pet.W or pet.y - ty > 6 * pet.line_h:
+            pet.leap_to(tx, ty)
+        else:
+            pet._ballistic_to(tx, ty, apex=0.7 * pet.line_h)
 
     def _pursue(self, world):
         pet = self.pet

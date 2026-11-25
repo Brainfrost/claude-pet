@@ -39,7 +39,7 @@ Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 28 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 40 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 
@@ -112,6 +112,23 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
   maximierte Fenster ohne Platz darüber ausgenommen). Terminal minimiert → das Pet fällt heraus und
   erkundet; kommt das Terminal zurück, springt es je nach Charakter früher oder später heim.
 - Tray → „Entwicklung“ zeigt Stufe, XP, Bindung, Stimmung, Statistik und Tricks.
+
+## Spielereien
+
+- **Ball** (Tray → „Ball werfen“): hüpft über Textzeilen, Fensterkanten und erkannte Ebenen, rollt über
+  Kanten. Das Pet jagt ihm nach (verspielt immer, neugierig meist, ängstlich manchmal, faul selten),
+  schnappt ihn und bringt ihn auf die Ebene unter deinem Mauszeiger. Du kannst den Ball greifen und werfen.
+  Nach 3 Minuten ohne Beachtung wird er weggeräumt (oder Tray → „Ball wegräumen“).
+- **Wörter fressen:** „bug“, „TODO“, „FIXME“, „error“, „Fehler“ im Text – das Pet läuft hin und knabbert
+  das Wort an (der vordere Teil verschwindet kurz unter einem Biss mit Krümeln). Neues Futter im Text
+  macht es schneller hungrig. Zähler im Tray unter „Entwicklung“.
+- **Tag und Nacht:** abends gähnt es, nachts schläft es fest und lange, morgens (5–10 Uhr) begrüßt es
+  dich einmal am Tag. Haiku weiß die Tageszeit.
+- **Pausen-Erinnerung:** misst über die letzte Maus-/Tastatureingabe (`GetLastInputInfo`), wie lange du am
+  Stück arbeitest (Pause = 5 Min. ohne Eingabe). Nach 2 Stunden (einstellbar: 1–2,5 h) stupst es dich an,
+  danach alle 30 Min.; nach einer Pause begrüßt es dich. Im Ruhemodus still.
+- **Git-Momente:** `git commit` / `git push` in einer Session (Befehl oder Ausgabe, nicht Fließtext) →
+  Tänzchen mit Konfetti und ein Spruch.
 
 ## Ebenen in allen Fenstern (Bildanalyse)
 

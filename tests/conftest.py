@@ -29,5 +29,6 @@ def make_snapshot(lines, active=0, n_tabs=3, left=0, top=40, rows=30, tab_names=
 
 @pytest.fixture(scope="session")
 def qapp():
-    from PyQt6.QtGui import QGuiApplication
-    return QGuiApplication.instance() or QGuiApplication([])
+    # QApplication (nicht nur QGuiApplication): Fenster-Widgets brauchen sie, sonst bricht Qt hart ab
+    from PyQt6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])

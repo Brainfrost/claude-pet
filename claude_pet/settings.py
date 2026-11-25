@@ -16,6 +16,8 @@ DEFAULTS = {
     "quiet_calls": True,         # Ruhemodus, solange ein Programm das Mikrofon benutzt
     "quiet_fullscreen": True,    # Ruhemodus bei Vollbild/Präsentation
     "dnd": False,                # "Bitte nicht stören" (manuell)
+    "break_reminder": True,      # Pausen-Erinnerung
+    "break_minutes": 120,        # nach so vielen Minuten Arbeit am Stück
 }
 SIZE_FACTOR = {"klein": 0.67, "normal": 1.0, "gross": 1.5}
 TALK_FACTOR = {"aus": 0.0, "wenig": 0.5, "normal": 1.0, "viel": 1.6}

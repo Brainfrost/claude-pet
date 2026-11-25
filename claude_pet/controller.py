@@ -7,7 +7,10 @@ from PyQt6.QtCore import QPoint, QRect, Qt, QTimer
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QApplication
 
-from . import creatures, growth, profile, quiet, settings, vision, winapi
+from datetime import date
+
+from . import creatures, daily, growth, profile, quiet, settings, vision, winapi
+from .ball import Ball
 from .brain import Brain
 from .pet import AIR, TRANSITION, Pet
 from .reactions import Reactions
@@ -15,7 +18,7 @@ from .speech import Speech
 from .stats import StatsWatcher
 from .terminal import TerminalWatcher
 from .tray import Tray
-from .windows import Bubble, DebugOverlay, PetWindow, TabFx
+from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, PetWindow, TabFx
 from .world import World
 
 log = logging.getLogger(__name__)
@@ -46,6 +49,11 @@ class Controller:
         self.win = PetWindow(self)
         self.bubble = Bubble()
         self.tabfx = TabFx()
+        self.bitefx = BiteFx()
+        self.ball = None
+        self.ball_win = BallWindow(self)
+        self.work = daily.WorkTracker()
+        self._day_t = self._work_t = 0.0
         self.debug = DebugOverlay(self)
         self.debug_on = False
         self.debug_scan = {}            # Bildschirm-Index -> Kanten der Ganz-Bildschirm-Analyse
@@ -89,6 +97,10 @@ class Controller:
         self.pet = Pet(creatures.get(self.prof["creature"]), self.prof.get("stage", "baby"),
                        self.prof["personality"])
         self.brain = Brain(self.pet, self.prof["personality"])
+        self.brain.on_ate = self.on_ate
+        self.brain.on_fetched = self.on_fetched
+        self.brain.ball = getattr(self, "ball", None)
+        self.pet.daypart = daily.daypart()
         self._sync_progress()
         log.info("Pet: %s (%s), Charakter %s, Stufe %s, XP %d, Bindung %.0f", self.prof["name"],
                  self.prof["creature"], self.prof["personality"], self.pet.stage, self.prof["xp"],
@@ -142,6 +154,86 @@ class Controller:
         self.pet.react("success")
         profile.save(self.prof)
         self.tray.update_identity()
+
+    # ================================================================ Spielen
+    def throw_ball(self):
+        """Ball ab Mauszeiger in die Welt werfen."""
+        x, y = winapi.cursor_pos()
+        self.ball = Ball(x, y - 30, random.uniform(-700, 700), random.uniform(-900, -400), self.pet.line_h)
+        self.brain.ball = self.ball
+        self.ball_win.place(self.ball)
+        self.ball_win.show()
+        log.info("Ball geworfen")
+
+    def remove_ball(self):
+        self.ball = None
+        self.brain.ball = None
+        self.pet.carrying = False
+        if self.brain.goal and self.brain.goal[0] == "ball":
+            self.brain.goal, self.pet.busy = None, False
+        self.ball_win.hide()
+
+    def grab_ball(self):
+        if self.ball is None:
+            return
+        if self.ball.carried_by == "pet":
+            self.pet.carrying = False
+        self.ball.carried_by = "user"
+
+    def on_fetched(self):
+        self.prof["fetched"] = self.prof.get("fetched", 0) + 1
+        self.speech.canned("fetch", force=random.random() < 0.5)
+        self.interact("stroke")
+
+    def on_ate(self, word, platform, start):
+        """Pet hat ein Wort angeknabbert: Biss anzeigen, zählen, kommentieren."""
+        n = growth.count_eaten(self.prof, date.today().isoformat())
+        profile.save(self.prof)
+        if self.world.ok and platform.pane < len(self.world.snap.panes):
+            pane = self.world.snap.panes[platform.pane]
+            x = platform.x0 + start * pane.cell_w
+            y = platform.y - 0.18 * pane.line_h
+            rect = (x, y, len(word) * pane.cell_w, pane.line_h)
+            self.bitefx.bite(rect, self._background_at(x - 3, y + pane.line_h / 2))
+        self.speech.canned("eat", force=True, word=word, today=n)
+        log.info("Wort gefressen: %s (%d heute)", word, n)
+
+    @staticmethod
+    def _background_at(x, y):
+        """Hintergrundfarbe direkt neben dem Wort (damit der Biss wie ein Loch im Text aussieht)."""
+        res = vision.grab(int(x) - 2, int(y) - 2, 4, 4)
+        if res is None:
+            return "#0c0c0c"
+        v = int(res[0].mean())
+        return f"#{v:02x}{v:02x}{v:02x}"
+
+    def _tick_daily(self, now):
+        """Tageszeit, Morgengruß, Pausen-Erinnerung (zwei- bzw. einmal pro Minute)."""
+        if now - self._day_t > 60:
+            self._day_t = now
+            self.pet.daypart = part = daily.daypart()
+            today = date.today().isoformat()
+            if part == "morgen" and self.prof.get("last_greet") != today and daily.idle_seconds() < 60:
+                self.prof["last_greet"] = today
+                profile.save(self.prof)
+                self.pet.react("done")
+                self.speech.canned("morning", force=True)
+        if now - self._work_t > 30:
+            self._work_t = now
+            s = self.settings
+            if s.get("break_reminder") and self.work.reminder_due(s.get("break_minutes", 120)):
+                mins = self.work.update()
+                hours = f"{mins / 60:.1f}".replace(".", ",").replace(",0", "") + " Stunden"
+                if self.pet.state == "hidden" and self.brain.home is not None and self.world.ok:
+                    i = self.brain._find(self.world, self.brain.home)
+                    if i is not None:
+                        self.brain._emerge(self.world, i)
+                self.pet.perform("huepfen")
+                self.speech.canned("break", force=True, hours=hours)
+                log.info("Pausen-Erinnerung nach %.0f Minuten", mins)
+            back = self.work.take_return()
+            if back is not None and back >= 10 and random.random() < 0.7:
+                self.speech.canned("welcome", force=True)
 
     def toggle_accessory(self, acc, on):
         off = self.prof.setdefault("accessories_off", [])
@@ -312,6 +404,7 @@ class Controller:
         if self.quiet_reason:
             self.win.hide()
             self.bubble.hide()
+            self.ball_win.hide()
             self._adapt_rate(pet)
             return
         if pet.state in ("idle", "sit", "happy") and abs(cursor[0] - pet.x) > pet.W * 1.5:
@@ -324,8 +417,10 @@ class Controller:
             self.prof["last_seen"] = time.time()
             profile.save(self.prof)
 
+        self._tick_daily(now)
         self.brain.tick(dt, self.world, cursor)
         pet.step(dt, self.world, self.screen_floor, self.vbounds(), cursor)
+        self._tick_ball(dt)
         self._play_tab_effects()
         self._update_visibility(now)
         self.place()
@@ -370,6 +465,24 @@ class Controller:
             self._adventure()
         self.watcher.poll_hz = 8 if (pet.pane is not None and pet.state != "hidden") else 4
 
+    def _tick_ball(self, dt):
+        ball = self.ball
+        if ball is None:
+            return
+        if ball.carried_by == "pet":
+            pet = self.pet
+            ball.x = pet.x + pet.facing * pet.W * 0.35
+            ball.y = pet.y - pet.H * 0.45
+        ball.step(dt, self.world, self.screen_floor, self.vbounds())
+        if ball.idle_t > 180:                       # drei Minuten unbeachtet: aufräumen
+            self.remove_ball()
+            return
+        visible = not (ball.carried_by == "pet" and not self.win.isVisible())
+        if visible != self.ball_win.isVisible():
+            self.ball_win.setVisible(visible)
+        if ball.carried_by != "user":
+            self.ball_win.place(ball)
+
     def _play_tab_effects(self):
         pet = self.pet
         for kind, fx, fy in pet.fx_requests:
@@ -384,7 +497,8 @@ class Controller:
         if self.quiet_reason:
             iv = 250
         elif (st in AIR or st in TRANSITION or st in ("held", "cling", "walk") or pet.effects
-              or pet.squash > 0 or self.bubble.isVisible() or self.debug_on):
+              or pet.squash > 0 or self.bubble.isVisible() or self.debug_on
+              or (self.ball is not None and not (self.ball.resting and self.ball.vx == 0))):
             iv = 16
         elif st in ("idle", "happy"):
             iv = 33

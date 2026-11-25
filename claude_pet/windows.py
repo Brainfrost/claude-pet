@@ -107,6 +107,23 @@ class PetWindow(QWidget):
                 effects.draw_text(p, cx + 4 * s + k * 2 * s, top + 2 * s - rise, "z", 5 * s, "#cfe8ff", alpha)
             elif kind == "♪":
                 effects.draw_text(p, cx + fx["dx"] * 0.5, top + 2 * s - rise, "♪", 6 * s, "#b8f2ff", alpha)
+            elif kind == "gähn":
+                effects.draw_text(p, cx + 3 * s, top + 3 * s - rise * 0.5, "gähn", 4 * s, "#cfe8ff", alpha)
+            elif kind == "krümel":
+                c = QColor("#c8a26b")
+                c.setAlpha(alpha)
+                for i in range(3):
+                    p.fillRect(int(cx + fx["dx"] + (i - 1) * s * 1.5), int(top + 15 * s + k * 5 * s + i * s),
+                               max(1, s // 2 + 1), max(1, s // 2 + 1), c)
+            elif kind == "konfetti":
+                colors = ("#ff4d6d", "#ffd166", "#4dd0ff", "#7CFC00", "#c77dff", "#ffffff")
+                for i, col in enumerate(colors):
+                    a_ = fx["dx"] + i * 1.05
+                    c = QColor(col)
+                    c.setAlpha(alpha)
+                    px_ = cx + math.cos(a_) * k * 9 * s
+                    py_ = top + 4 * s - math.sin(a_) * k * 7 * s + k * k * 10 * s
+                    p.fillRect(int(px_), int(py_), max(2, s), max(2, s), c)
             else:
                 effects.draw_text(p, cx - s, top + 2 * s - rise * 0.3, kind, 7 * s, "#ffd166", alpha)
 
@@ -217,6 +234,132 @@ class TabFx(_Overlay):
                     cx = x + math.cos(ang + 1.57) * d * (1 if i % 2 else -1)
                     cy = y + 4 + abs(math.sin(ang)) * d * 0.5
                     p.drawEllipse(int(cx - r), int(cy - r), int(2 * r), int(2 * r))
+        p.end()
+
+
+# ===================================================================== Ball
+class BallWindow(QWidget):
+    """Der Ball: zum Greifen und Werfen (wie das Pet), sonst gehen Klicks am Rand durch."""
+
+    def __init__(self, ctl):
+        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
+                         | Qt.WindowType.Tool | Qt.WindowType.WindowDoesNotAcceptFocus)
+        self.ctl = ctl
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self._samples = []
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        winapi.add_exstyle(int(self.winId()), winapi.WS_EX_NOACTIVATE | winapi.WS_EX_TOOLWINDOW)
+        winapi.exclude_from_capture(int(self.winId()))
+
+    def place(self, ball):
+        d = ball.r * 2 + 4
+        self.setGeometry(int(ball.x - d / 2), int(ball.y - d / 2), d, d)
+        self.update()
+
+    def paintEvent(self, e):
+        ball = self.ctl.ball
+        if ball is None:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = ball.r
+        c = self.width() / 2
+        p.setPen(QPen(QColor("#2b2140"), 2))
+        p.setBrush(QColor("#ff4d6d"))
+        p.drawEllipse(int(c - r), int(c - r), 2 * r, 2 * r)
+        p.setPen(QPen(QColor("#ffffff"), max(2, r // 3)))
+        a = ball.angle
+        p.drawLine(int(c + math.cos(a) * r * 0.85), int(c + math.sin(a) * r * 0.85),
+                   int(c - math.cos(a) * r * 0.85), int(c - math.sin(a) * r * 0.85))
+        p.end()
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton and self.ctl.ball is not None:
+            self.ctl.grab_ball()
+            g = e.globalPosition()
+            self._samples = [(time.perf_counter(), g.x(), g.y())]
+
+    def mouseMoveEvent(self, e):
+        ball = self.ctl.ball
+        if ball is None or ball.carried_by != "user":
+            return
+        g = e.globalPosition()
+        ball.x, ball.y = g.x(), g.y()
+        now = time.perf_counter()
+        self._samples = [s for s in self._samples if now - s[0] < 0.1] + [(now, g.x(), g.y())]
+        self.place(ball)
+
+    def mouseReleaseEvent(self, e):
+        ball = self.ctl.ball
+        if ball is None or ball.carried_by != "user":
+            return
+        vx = vy = 0.0
+        if len(self._samples) >= 2:
+            (t0, x0, y0), (t1, x1, y1) = self._samples[0], self._samples[-1]
+            if t1 - t0 > 0.005:
+                vx, vy = (x1 - x0) / (t1 - t0), (y1 - y0) / (t1 - t0)
+        ball.throw(vx, vy)
+
+
+# ===================================================================== Biss im Text
+class BiteFx(_Overlay):
+    """Ein angeknabbertes Wort: die vordere Hälfte verschwindet unter einem Biss, ein paar Krümel."""
+    LIFE = 7.0
+
+    def __init__(self):
+        super().__init__()
+        self.bites = []         # (start, rect, Farbe)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._tick)
+
+    def bite(self, rect, color):
+        g = QGuiApplication.primaryScreen().virtualGeometry()
+        if self.geometry() != g:
+            self.setGeometry(g)
+        self.bites.append((time.perf_counter(), rect, color))
+        if not self.isVisible():
+            self.show()
+        self.timer.start(50)
+        self.update()
+
+    def _tick(self):
+        now = time.perf_counter()
+        self.bites = [b for b in self.bites if now - b[0] < self.LIFE]
+        if not self.bites:
+            self.timer.stop()
+            self.hide()
+            return
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        ox, oy = self.geometry().x(), self.geometry().y()
+        now = time.perf_counter()
+        for t0, (x, y, w, h), col in self.bites:
+            k = (now - t0) / self.LIFE
+            alpha = 255 if k < 0.85 else int(255 * (1 - k) / 0.15)
+            c = QColor(col)
+            c.setAlpha(alpha)
+            path = QPainterPath()
+            bw = w * 0.55                       # vordere Hälfte "abgebissen"
+            path.moveTo(x - ox, y - oy)
+            path.lineTo(x - ox + bw, y - oy)
+            for i in range(3):                  # Bissspuren: drei Halbkreise am Rand
+                cy_ = y - oy + h * (i + 0.5) / 3
+                path.arcTo(x - ox + bw - h / 6, cy_ - h / 6, h / 3, h / 3, 90, 180)
+            path.lineTo(x - ox, y - oy + h)
+            path.closeSubpath()
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(c)
+            p.drawPath(path)
+            crumb = QColor("#c8a26b")
+            crumb.setAlpha(alpha)
+            for i in range(4):
+                p.fillRect(int(x - ox + bw + 4 + i * 5), int(y - oy + h + 2 + (i % 2) * 3), 3, 3, crumb)
         p.end()
 
 

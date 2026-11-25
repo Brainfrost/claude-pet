@@ -9,7 +9,7 @@ import random
 from .creatures import STAGE_PX
 from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_VISION, ROW_WINDOW, Platform
 
-GROUND = {"idle", "walk", "sit", "sleep", "happy"}
+GROUND = {"idle", "walk", "sit", "sleep", "happy", "eat"}
 AIR = {"fall", "jump"}
 # Abläufe beim Hinein-/Herausklettern in einen Tab-Reiter (zeitgesteuert, keine Physik)
 TRANSITION = {"crouch", "hang", "climb_in", "climb_out"}
@@ -66,6 +66,8 @@ class Pet:
         self.double_hop = False     # Doppelsprung: zweiter Hüpfer steht noch aus
         self.want_adventure = False # möchte zu einem anderen Fenster springen (Controller sucht Ziel)
         self.vision_grace = 0       # Bildanalyse hat die Kante kurz verloren: so oft noch tolerieren
+        self.daypart = "tag"        # morgen | tag | abend | nacht (setzt der Controller)
+        self.carrying = False       # trägt gerade den Ball im Maul
         self.set_scale(24)
 
     # ------------------------------------------------------------ Maßstab
@@ -270,6 +272,19 @@ class Pet:
             if g:
                 self.facing = -self.facing
                 self.state, self.timer = "idle", 1.5
+
+    def eat(self):
+        """Ein Wort anknabbern (der Controller zeigt den Biss im Text)."""
+        if not self.grounded:
+            return False
+        self.state, self.timer, self.busy = "eat", 1.6, False
+        return True
+
+    def celebrate(self):
+        """Git-Moment: Tänzchen mit Konfetti."""
+        for i in range(3):
+            self._effect("konfetti", life=1.4, dx=random.uniform(0, 6.28), delay=i * 0.2)
+        self.perform("tanzen")
 
     def go_to_word(self, word, world):
         """Zu einem Wort im sichtbaren Text laufen bzw. springen. True, wenn gefunden."""
@@ -523,6 +538,14 @@ class Pet:
             self._start_fall(0, 0)
             return
         st = self.state
+        if st == "eat":
+            self.timer -= dt
+            if random.random() < dt * 6:
+                self._effect("krümel", life=0.7, dx=self.facing * self.W * 0.35)
+            if self.timer <= 0:
+                self.state, self.timer = "happy", 1.2
+                self._effect("heart", life=1.2)
+            return
         if st in ("idle", "sit", "sleep", "happy"):
             self.timer -= dt
             if st == "sleep" and random.random() < dt * 0.9:
@@ -530,8 +553,9 @@ class Pet:
             if self.timer > 0 or self.busy:
                 return
             if st == "sit":
-                if random.random() < self.traits["sleep"]:
-                    self.state, self.timer = "sleep", random.uniform(*self.traits["sleep_len"])
+                night = self.daypart == "nacht"
+                if random.random() < (0.95 if night else self.traits["sleep"]):
+                    self.state, self.timer = "sleep", random.uniform(*self.traits["sleep_len"]) * (2.5 if night else 1)
                 else:
                     self.state, self.timer = "idle", random.uniform(*self.traits["idle"])
                 return
@@ -567,6 +591,11 @@ class Pet:
                 if self._jump_home(world):
                     return
             self._explore(world)
+            return
+        if self.daypart == "abend" and random.random() < 0.15:
+            self._effect("gähn", life=1.8)
+        if self.daypart == "nacht" and random.random() < 0.7:
+            self.state, self.timer = "sit", random.uniform(2, 5)     # nachts: hinsetzen, einschlafen
             return
         r = random.random()
         w_walk, w_jump, w_sit = tr["walk"], tr["jump"], tr["sit"]
@@ -790,6 +819,8 @@ class Pet:
             st = "fall"
         elif st == "crouch":
             st = "sit"
+        elif st == "eat":
+            st = "sit" if int(self.anim_t / 0.15) % 2 else "idle"      # mampfen
         elif st in TRANSITION:
             st = "fall"
         return {"state": st, "walk_i": int(self.anim_t / (0.15 / max(0.5, self.run))),

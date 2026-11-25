@@ -2,11 +2,19 @@
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
+from datetime import date
+
 from . import creatures, growth
+
+
+def _today():
+    return date.today().isoformat()
 
 SIZES = (("klein", "Klein"), ("normal", "Normal"), ("gross", "Groß"))
 TALK = (("aus", "Aus (nur auf Wunsch)"), ("wenig", "Wenig"), ("normal", "Normal"), ("viel", "Viel"))
+BREAK_MIN = ((60, "1 Stunde"), (90, "1,5 Stunden"), (120, "2 Stunden"), (150, "2,5 Stunden"))
 SWITCHES = (("bubbles", "Sprechblasen anzeigen"),
+            ("break_reminder", "Pausen-Erinnerung"),
             ("quiet_calls", "Ruhemodus bei Calls (Mikrofon aktiv)"),
             ("quiet_fullscreen", "Ruhemodus bei Vollbild/Präsentation"),
             ("autostart", "Mit Windows starten"))
@@ -24,6 +32,8 @@ class Tray:
         self._action(m, "Neues Pet auswürfeln", ctl.reroll)
         self._action(m, "Was denkst du gerade?", lambda: ctl.speech.ask_now(ctl.world, ctl.pet.pane or 0))
         self._action(m, "Ausflug machen!", lambda: setattr(ctl.pet, "want_adventure", True))
+        self._action(m, "Ball werfen", ctl.throw_ball)
+        self.a_noball = self._action(m, "Ball wegräumen", ctl.remove_ball)
         self._action(m, "Pet zu mir holen", ctl.summon)
         a_dbg = QAction("Entwickler-Ansicht", m, checkable=True)
         a_dbg.toggled.connect(ctl.toggle_debug)
@@ -69,6 +79,7 @@ class Tray:
         self.a_info.setText(text)
 
     def _refresh(self):
+        self.a_noball.setEnabled(self.ctl.ball is not None)
         self._fill_settings()
         self._fill_development()
 
@@ -85,6 +96,12 @@ class Tray:
                 a.setCheckable(True)
                 a.setChecked(s.get(key) == val)
                 a.triggered.connect(lambda _=False, key=key, val=val: ctl.set_setting(key, val))
+        sub = self.m_set.addMenu("Pause erinnern nach")
+        for val, label in BREAK_MIN:
+            a = sub.addAction(label)
+            a.setCheckable(True)
+            a.setChecked(s.get("break_minutes") == val)
+            a.triggered.connect(lambda _=False, val=val: ctl.set_setting("break_minutes", val))
         self.m_set.addSeparator()
         for key, label in SWITCHES:
             a = self.m_set.addAction(label)
@@ -103,6 +120,8 @@ class Tray:
             f"Seit Geburt: {st.get('tools', 0)} Tool-Aufrufe, {st.get('prompts', 0)} Eingaben, "
             f"{st.get('sessions', 0)} Sessions",
             "Tricks: " + (", ".join(tricks) if tricks else "noch keine"),
+            f"Gefressen: {pr['eaten'].get('today', 0) if pr['eaten'].get('date') == _today() else 0} heute, "
+            f"{pr['eaten'].get('total', 0)} insgesamt  ·  Ball gebracht: {pr.get('fetched', 0)}×",
         ]
         self.m_dev.clear()
         for t in lines:

@@ -3,7 +3,11 @@
 Die individuelle Persönlichkeit eines Pets (Marotte, Lieblingsding, Ausruf …) wird beim Auswürfeln
 von Haiku erfunden und im Steckbrief gespeichert – siehe speech.Speech.generate_persona.
 """
-from . import growth
+from datetime import datetime
+
+from . import daily, growth
+
+DAYPART = {"morgen": "Morgen", "tag": "Tag", "abend": "Abend", "nacht": "Nacht"}
 
 ACC_NAMES = {"helm": "einen Bauhelm", "brille": "eine Brille", "lupe": "eine Lupe"}
 
@@ -79,6 +83,7 @@ def system_prompt(prof):
         f"Dein Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n"
         + (f"Das macht dich einzigartig: {persona}\n" if persona else "")
         + f"{growth.describe(prof)}\n"
+        + f"Es ist gerade {DAYPART[daily.daypart()]} ({datetime.now():%H:%M}).\n"
         + (f"Du trägst gerade: {', '.join(ACC_NAMES.get(a, a) for a in growth.worn(prof))}.\n"
            if growth.worn(prof) else "")
         + "\nRegeln: Sag genau EINEN kurzen Satz auf Deutsch (höchstens 14 Wörter), in Ich-Form, passend zu "

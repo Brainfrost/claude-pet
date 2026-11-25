@@ -37,6 +37,8 @@ EVENTS = {
     "attention": "Claude wartet gerade auf eine Entscheidung deines Menschen (Rückfrage oder Freigabe).",
     "content": "Im Terminal ist gerade neuer Text erschienen. Reagiere auf das, worum es darin geht.",
     "idle": "Nichts Besonderes passiert. Du schaust dir an, was gerade im Terminal steht.",
+    "commit": "Dein Mensch hat gerade Code committet (git commit). Feier das!",
+    "push": "Dein Mensch hat gerade Code hochgeladen (git push). Feier das!",
 }
 
 CANNED = {
@@ -63,6 +65,48 @@ CANNED = {
         "neugierig": ["Wohin gehen wir?", "Ich komm mit!"],
         "verspielt": ["Huckepack!", "Hab dich!"],
         "aengstlich": ["Bitte nicht loslassen…"],
+    },
+    "fetch": {
+        "faul": ["Da. Jetzt lass mich schlafen.", "Bitte. Einmal reicht."],
+        "neugierig": ["Hier! Nochmal?", "Gefunden! Wo fliegt er als Nächstes hin?"],
+        "verspielt": ["NOCHMAL! NOCHMAL!", "Hab ihn! Wirf, wirf, wirf!"],
+        "aengstlich": ["Ich… ich hab ihn gebracht.", "Hier, bitte nicht zu weit werfen."],
+    },
+    "eat": {
+        "faul": ["Mampf. {word} erledigt. ({today} heute)", "Hm, {word} schmeckt nach Montag."],
+        "neugierig": ["Mmmh, ein {word}! Das war heute Nummer {today}.", "{word} probiert – knusprig!"],
+        "verspielt": ["Nom nom nom! {word} weg! ({today} heute)", "Noch ein {word}! Lecker!"],
+        "aengstlich": ["Ich hab mich getraut und ein {word} gegessen! ({today} heute)", "Hoffentlich war das {word} nicht giftig…"],
+    },
+    "morning": {
+        "faul": ["Mrrh… schon Morgen? Guten Morgen…", "Guten Morgen. Kaffee zuerst."],
+        "neugierig": ["Guten Morgen! Was bauen wir heute?", "Morgen! Ich bin schon ganz gespannt!"],
+        "verspielt": ["GUTEN MORGEN! Endlich bist du da!", "Morgen! Spielen wir heute wieder?"],
+        "aengstlich": ["Oh, guten Morgen… schön, dass du wieder da bist.", "Guten Morgen! Ich hab dich vermisst."],
+    },
+    "break": {
+        "faul": ["Du arbeitest seit {hours} – selbst ich würde jetzt Pause machen.", "{hours} am Stück? Leg dich mal hin."],
+        "neugierig": ["Schon {hours} am Stück! Magst du kurz die Beine vertreten?", "{hours} ohne Pause – kurz frische Luft?"],
+        "verspielt": ["Pause! Pause! {hours} durchgearbeitet – Zeit zum Spielen!", "{hours} geschafft! Jetzt eine Runde Pause!"],
+        "aengstlich": ["Ähm… {hours} ohne Pause? Bitte trink was, ja?", "Du arbeitest schon {hours}… mach doch kurz Pause."],
+    },
+    "welcome": {
+        "faul": ["Ah, wieder da.", "Ich hab nichts gemacht, während du weg warst."],
+        "neugierig": ["Da bist du ja wieder!", "Wieder da! Was hast du gemacht?"],
+        "verspielt": ["Juhu, du bist wieder da!", "Endlich! Mir war langweilig!"],
+        "aengstlich": ["Puh, du bist wieder da.", "Ich hab auf dich gewartet."],
+    },
+    "commit": {
+        "faul": ["Committet. Gut. Weiterschlafen.", "Ein Commit! Ich klatsche… innerlich."],
+        "neugierig": ["Ein Commit! Was ist drin?", "Commit! Schon wieder was geschafft!"],
+        "verspielt": ["COMMIT! Konfetti!", "Commit-Party!"],
+        "aengstlich": ["Ein Commit! Hoffentlich ist alles gut gegangen.", "Gespeichert! Jetzt kann nichts mehr verloren gehen."],
+    },
+    "push": {
+        "faul": ["Gepusht. Feierabend?", "Hochgeladen. Reicht für heute."],
+        "neugierig": ["Push! Jetzt sehen es alle!", "Ab in die Welt damit!"],
+        "verspielt": ["PUSH! Auf zum Mond!", "Es ist draußen! Party!"],
+        "aengstlich": ["Gepusht… hoffentlich mag es jeder.", "Uiii, jetzt ist es öffentlich!"],
     },
 }
 
@@ -159,16 +203,18 @@ class Speech(QObject):
         return time.time() + random.uniform(*r) if r else float("inf")
 
     # ------------------------------------------------------------ öffentlich
-    def canned(self, kind):
-        """Sofortiger Spruch ohne KI, sparsam."""
+    def canned(self, kind, force=False, **values):
+        """Sofortiger Spruch ohne KI. Normalerweise sparsam; force=True sagt ihn sicher."""
         now = time.time()
         if self.muted:
             return
         lines = CANNED.get(kind, {}).get(self.prof["personality"])
-        if not lines or now - self.last_canned < 25 or random.random() > 0.4:
+        if not lines:
+            return
+        if not force and (now - self.last_canned < 25 or random.random() > 0.4):
             return
         self.last_canned = now
-        self.said.emit(random.choice(lines))
+        self.said.emit(random.choice(lines).format(**values))
 
     def on_event(self, kind, world, pane=0, detail="", new_text="", force=False):
         """Bei einem Anlass vielleicht reagieren (Haiku). True, wenn angefragt."""

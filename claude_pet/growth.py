@@ -28,7 +28,19 @@ def ensure_defaults(prof):
     prof.setdefault("accessories", [])          # freigeschaltet
     prof.setdefault("accessories_off", [])      # vom Nutzer ausgeblendet
     prof.setdefault("last_seen", time.time())
+    prof.setdefault("eaten", {"date": "", "today": 0, "total": 0})
+    prof.setdefault("fetched", 0)
+    prof.setdefault("last_greet", "")
     return prof
+
+
+def count_eaten(prof, today):
+    e = prof["eaten"]
+    if e.get("date") != today:
+        e["date"], e["today"] = today, 0
+    e["today"] += 1
+    e["total"] = e.get("total", 0) + 1
+    return e["today"]
 
 
 def worn(prof):

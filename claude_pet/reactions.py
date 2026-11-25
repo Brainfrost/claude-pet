@@ -9,7 +9,7 @@ import re
 import time
 from collections import deque
 
-from .brain import tab_key
+from .brain import FOOD, tab_key
 from .speech import is_content
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,12 @@ SUCCESS = re.compile(
 ATTENTION = re.compile(
     r"(do you want to|möchtest du|❯\s*1\.\s*yes|enter to select|esc to cancel|\(y/n\))", re.I)
 
-COOLDOWN = {"error": 25, "success": 25, "attention": 40, "done": 15, "start": 20}
+# git: der Befehl (wie Claude Code ihn anzeigt) oder die Ausgabe von commit/push
+_CMD = r"(?:(?:Bash|PowerShell)\([^\n]*|^\s*[$>]\s*)\bgit\b[^\n]*"
+GIT_COMMIT = re.compile(_CMD + r"\bcommit\b|\[[\w./-]+(?: \(root-commit\))? [0-9a-f]{7,}\] ")
+GIT_PUSH = re.compile(_CMD + r"\bpush\b|\b[0-9a-f]{7,}\.\.[0-9a-f]{7,}\s+\S+\s+->\s+\S+|\* \[new branch\]")
+
+COOLDOWN = {"error": 25, "success": 25, "attention": 40, "done": 15, "start": 20, "commit": 30, "push": 30}
 
 NL = chr(10)
 CONTENT_CHARS = 500    # so viel neuer Text, bevor das Pet den Inhalt kommentiert
@@ -89,6 +94,12 @@ class Reactions:
                 for line in new:
                     if is_content(line):
                         self.buffer.append(line.rstrip())
+                    if FOOD.search(line):
+                        brain.food_urge = True        # neues Futter: bald hingehen
+                    if GIT_PUSH.search(line):
+                        events.append(("push", line.strip()))
+                    elif GIT_COMMIT.search(line):
+                        events.append(("commit", line.strip()))
                     if CODE_LINE.match(line):
                         continue
                     s = line.strip()
@@ -114,6 +125,12 @@ class Reactions:
             self.last[kind] = now
             done_kinds.add(kind)
             log.info("Ereignis %s: %s", kind, detail[:80])
+            if kind in ("commit", "push"):
+                pet.celebrate()
+                self.ctl.interact("success")
+                if not speech.on_event(kind, world, pi, detail):
+                    speech.canned(kind, force=True)
+                continue
             pet.react(kind)
             self.ctl.interact(kind)
             new_text = NL.join(self.buffer) if kind == "done" else ""
