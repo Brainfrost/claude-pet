@@ -103,6 +103,12 @@ CANNED = {
         "verspielt": ["Nom nom nom! {word} weg! ({today} heute)", "Noch ein {word}! Lecker!"],
         "aengstlich": ["Ich hab mich getraut und ein {word} gegessen! ({today} heute)", "Hoffentlich war das {word} nicht giftig…"],
     },
+    "treasure": {
+        "faul": ["Oh. Ein {rarity}er Schatz: {word}. Das war die Mühe wert.", "{word}! Selten. Fast so selten wie ich wach."],
+        "neugierig": ["Wow, ein {rarity}es {word}! Ab in die Schatzkiste!", "{word}?! So eins hatte ich noch nie!"],
+        "verspielt": ["JACKPOT! Ein {rarity}es {word}!", "{word}! {word}! Neuer Schatz! Juhuu!"],
+        "aengstlich": ["E-ein {rarity}es {word}… ich hab's tatsächlich erwischt!", "{word}… ganz neu für mich. Ich heb's gut auf."],
+    },
     "morning": {
         "faul": ["Mrrh… schon Morgen? Guten Morgen…", "Guten Morgen. Kaffee zuerst."],
         "neugierig": ["Guten Morgen! Was bauen wir heute?", "Morgen! Ich bin schon ganz gespannt!"],

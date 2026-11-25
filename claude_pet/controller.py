@@ -20,6 +20,7 @@ from .stats import StatsWatcher
 from .terminal import TerminalWatcher
 from .tray import Tray
 from . import diary as diary_mod
+from . import treasure
 from .book import BookWindow
 from .dreams import LABEL as DREAM_LABEL, Dreamer
 from .seasons import Weather
@@ -65,6 +66,7 @@ class Controller:
                 self.diary.set_minutes(day, mins)
         self.diary_win = None
         self.dreamer = Dreamer()
+        self.treasure_win = None
         self.dream_win = DreamCloud(self.dreamer)
         self._diary_busy = False
         self.season_win = SeasonOverlay(self.weather)
@@ -283,14 +285,23 @@ class Controller:
         profile.save(self.prof)
         self.diary.count("eaten")
         self.diary.add_word(word)
+        k, tier, new = treasure.add(self.prof, word)
+        profile.save(self.prof)
+        if self.treasure_win is not None and self.treasure_win.isVisible():
+            self.treasure_win.set_html(treasure.html(self.prof))
         if self.world.ok and platform.pane < len(self.world.snap.panes):
             pane = self.world.snap.panes[platform.pane]
             x = platform.x0 + start * pane.cell_w
             y = platform.y - 0.18 * pane.line_h
             rect = (x, y, len(word) * pane.cell_w, pane.line_h)
             self.bitefx.bite(rect, self._background_at(x - 3, y + pane.line_h / 2))
-        self.speech.canned("eat", force=True, word=word, today=n)
-        log.info("Wort gefressen: %s (%d heute)", word, n)
+        if new and tier > 0:
+            # neuer seltener Schatz: Freudentanz
+            self.pet.celebrate()
+            self.speech.canned("treasure", force=True, word=k.upper(), rarity=treasure.TIERS[tier][0])
+        else:
+            self.speech.canned("eat", force=True, word=word, today=n)
+        log.info("Wort gefressen: %s (%d heute, Stufe %d%s)", word, n, tier, ", neu" if new else "")
 
     @staticmethod
     def _background_at(x, y):
@@ -342,6 +353,17 @@ class Controller:
             back = self.work.take_return()
             if back is not None and back >= 10 and random.random() < 0.7:
                 self.speech.canned("welcome", force=True)
+
+    # ================================================================ Schatzkiste
+    def open_treasure(self):
+        found, total = treasure.progress(self.prof)
+        if self.treasure_win is None:
+            self.treasure_win = BookWindow(f"Schatzkiste von {self.prof['name']}",
+                                           "Jedes gefressene Wort landet hier. Manche sind sehr selten …",
+                                           treasure.html(self.prof), size=(460, 620))
+        else:
+            self.treasure_win.set_html(treasure.html(self.prof))
+        self.treasure_win.show_front()
 
     # ================================================================ Träume
     def _tick_dream(self, dt, pet, visible):

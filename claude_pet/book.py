@@ -10,6 +10,10 @@ STYLE = """
     QPushButton { background: #2b2745; border: 1px solid #4a4470; border-radius: 8px; padding: 7px 14px; }
     QPushButton:hover { background: #363057; }
     QPushButton:disabled { color: #6c6790; }
+    QScrollBar:vertical { background: transparent; width: 10px; margin: 4px 2px; }
+    QScrollBar::handle:vertical { background: #3a3556; border-radius: 3px; min-height: 30px; }
+    QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
+    QScrollBar::add-page, QScrollBar::sub-page { background: none; }
 """
 DOC_CSS = """
     p.wh { color: #f2c66d; font-weight: 600; margin: 0 0 4px 0; }
@@ -17,7 +21,7 @@ DOC_CSS = """
     p { margin: 2px 0 4px 0; line-height: 140%; }
     p.sym { color: #8f86c9; font-size: 12px; }
     td { padding: 3px 10px 3px 0; }
-    .rar { font-size: 12px; }
+    .rar { font-size: 11px; color: #8f86c9; }
 """
 
 

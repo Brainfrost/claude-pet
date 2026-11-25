@@ -10,11 +10,10 @@ import re
 from collections import deque
 
 from .pet import AIR, TRANSITION
+from .treasure import FOOD, rarity   # alle Schatz-Wörter sind Futter
 
 log = logging.getLogger(__name__)
 
-# Wörter, die das Pet gern frisst
-FOOD = re.compile(r"\b(bugs?|todos?|fixme|errors?|fehler)\b", re.I)
 BALL_INTEREST = {"verspielt": 1.0, "neugierig": 0.8, "aengstlich": 0.4, "faul": 0.15}
 EAT_EVERY = {"verspielt": (20, 50), "neugierig": (25, 60), "aengstlich": (60, 150), "faul": (90, 240)}
 # Nach dem Fressen satt (Sekunden): in der Zeit wird nichts gefressen, auch nicht auf Maus-Hinweis
@@ -277,10 +276,11 @@ class Brain:
             r = world.pane_rect(p.pane)
             if r and p.y - pet.H * 1.3 < r[1]:
                 continue                        # zu nah am oberen Rand: kein Platz zum Hinspringen
-            m = FOOD.search(p.text)
+            m = max(FOOD.finditer(p.text), key=lambda m: rarity(m.group(0)), default=None)
             if not m:
                 continue
-            d = abs(p.y - pet.y) * 2 + abs(p.x0 - pet.x)
+            # Seltenes lockt stärker: ein epischer Schatz ist auch weiter weg noch interessant
+            d = (abs(p.y - pet.y) * 2 + abs(p.x0 - pet.x)) / (1 + 2 * rarity(m.group(0)))
             if best is None or d < best[0]:
                 best = (d, (p.text, p.row, m.start(), m.group(0)))
         return best[1] if best else None
