@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushB
                              QWidget)
 
 from . import creatures, personas, profile
+from .speech import Speech
 
 MAX_ROLLS = 5
 CHAR_SHORT = {
@@ -106,7 +107,7 @@ class _Preview(QWidget):
 
 
 class AdoptionDialog(QWidget):
-    adopted = pyqtSignal(str, str, str)       # figur, charakter, name
+    adopted = pyqtSignal(str, str, str, str)  # figur, charakter, name, persönlichkeit ("" = später)
 
     def __init__(self, rnd=None):
         super().__init__(None, Qt.WindowType.Window)
@@ -116,6 +117,11 @@ class AdoptionDialog(QWidget):
             QLabel#title { font-size: 22px; font-weight: 600; }
             QLabel#sub { color: #a9a3c9; }
             QLabel#char { color: #d8d2f5; }
+            QLabel#head2 { color: #8f86c9; font-size: 12px; font-weight: 600; letter-spacing: 1px; }
+            QLabel#prompt { color: #bdb6e0; font-size: 13px; background: #1b1830; border-radius: 6px;
+                            padding: 8px 10px; }
+            QLabel#persona { color: #ece9f7; font-size: 13px; font-style: italic; background: #221d3d;
+                             border-radius: 6px; padding: 8px 10px; }
             QLineEdit { background: #221f35; border: 1px solid #3a3556; border-radius: 6px; padding: 6px 8px;
                         font-size: 15px; }
             QPushButton { background: #2b2745; border: 1px solid #4a4470; border-radius: 8px; padding: 8px 14px; }
@@ -127,6 +133,8 @@ class AdoptionDialog(QWidget):
         self.pool = AdoptionPool(rnd)
         self.renderer = creatures.Renderer()
         self._name_edited = False
+        self.personas = {}                     # Index des Wurfs -> von Haiku erfundene Persönlichkeit
+        self.speech = Speech({"name": "", "personality": "neugierig"})
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
@@ -140,8 +148,8 @@ class AdoptionDialog(QWidget):
         root.addWidget(head)
         root.addWidget(hint)
 
-        self.preview = _Preview(self.renderer, px=6)
-        self.preview.setMinimumSize(420, 190)
+        self.preview = _Preview(self.renderer, px=5)
+        self.preview.setMinimumSize(420, 150)
         root.addWidget(self.preview)
         self.art = QLabel()
         self.art.setObjectName("title")
@@ -155,6 +163,18 @@ class AdoptionDialog(QWidget):
         self.char.setWordWrap(True)
         self.char.setAlignment(Qt.AlignmentFlag.AlignCenter)
         for w in (self.art, self.desc, self.char):
+            root.addWidget(w)
+        h1 = QLabel("GRUNDPERSÖNLICHKEIT DER FIGUR (PROMPT)")
+        h1.setObjectName("head2")
+        self.prompt = QLabel()
+        self.prompt.setObjectName("prompt")
+        self.prompt.setWordWrap(True)
+        h2 = QLabel("EINMALIGE PERSÖNLICHKEIT (VON HAIKU ERFUNDEN)")
+        h2.setObjectName("head2")
+        self.persona = QLabel()
+        self.persona.setObjectName("persona")
+        self.persona.setWordWrap(True)
+        for w in (h1, self.prompt, h2, self.persona):
             root.addWidget(w)
 
         thumbs = QHBoxLayout()
@@ -190,12 +210,32 @@ class AdoptionDialog(QWidget):
         self.timer.timeout.connect(self._animate)
         self.timer.start(60)
         self._roll()
-        self.resize(560, 680)
+        self.resize(600, 860)
 
     # ------------------------------------------------------------ Ablauf
     def _roll(self):
         if self.pool.roll() is not None:
+            i = self.pool.index
+            cid, pers = self.pool.current
+            started = self.speech.invent_persona({"creature": cid, "personality": pers},
+                                                 lambda text, i=i: self._persona_ready(i, text))
+            if not started:
+                self.personas[i] = ""
             self._show_current(new_name=True)
+
+    def _persona_ready(self, i, text):
+        self.personas[i] = text
+        if i == self.pool.index:
+            self._show_persona()
+
+    def _show_persona(self):
+        text = self.personas.get(self.pool.index)
+        if text is None:
+            self.persona.setText("Haiku erfindet gerade eine Persönlichkeit …")
+        elif text:
+            self.persona.setText(text)
+        else:
+            self.persona.setText("(Ohne claude-CLI: die Persönlichkeit entsteht nach der Adoption.)")
 
     def _select(self, i):
         if i < len(self.pool.rolls):
@@ -209,6 +249,8 @@ class AdoptionDialog(QWidget):
         self.art.setText(f"{c['name']} · {c['art']}")
         self.desc.setText(short_description(cid))
         self.char.setText(CHAR_SHORT.get(pers, pers))
+        self.prompt.setText(f"{personas.CREATURE.get(cid, '')}\nCharakter: {personas.CHARACTER.get(pers, '')}.")
+        self._show_persona()
         if new_name:
             self.name.setText(c["name"])
             self._name_edited = False
@@ -235,5 +277,5 @@ class AdoptionDialog(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if ok == QMessageBox.StandardButton.Yes:
             self.timer.stop()
-            self.adopted.emit(cid, pers, name)
+            self.adopted.emit(cid, pers, name, self.personas.get(self.pool.index) or "")
             self.close()

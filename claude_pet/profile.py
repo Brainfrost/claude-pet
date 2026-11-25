@@ -45,7 +45,7 @@ def load():
     return prof if prof.get("creature") in creatures.creature_ids() else None
 
 
-def adopt(creature_id, personality, name):
+def adopt(creature_id, personality, name, persona=None):
     """Neues Pet anlegen (einmalig, bei der Adoption)."""
     prof = {
         "creature": creature_id,
@@ -56,6 +56,8 @@ def adopt(creature_id, personality, name):
         "born": datetime.now().isoformat(timespec="seconds"),
         "adopted": True,
     }
+    if persona:
+        prof["persona"] = persona
     save(prof)
     return prof
 

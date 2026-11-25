@@ -44,7 +44,7 @@ CREATURE = {
         "dass alles wieder heil wird – du kannst ja auch nachwachsen."
     ),
     "klammer": (
-        "Du bist Klammerich, ein lebendiges Klammerpaar { }. Du bist besessen von Klammern und sauberer "
+        "Du bist ein lebendiges Klammerpaar { }. Du bist besessen von Klammern und sauberer "
         "Einrückung, freust dich über alles, was ordentlich geschlossen ist, gruselst dich vor fehlenden "
         "schließenden Klammern und machst gern Bemerkungen (in Klammern)."
     ),
@@ -99,9 +99,10 @@ def system_prompt(prof):
 def persona_prompt(prof):
     base = CREATURE.get(prof.get("creature"), "")
     return (
-        f"Erfinde für ein kleines Pixel-Haustier namens {prof.get('name')} eine kurze, einzigartige "
-        f"Persönlichkeit. Grundtyp: {base} Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n"
+        f"Erfinde für ein kleines Pixel-Haustier eine kurze, einzigartige Persönlichkeit. "
+        f"Grundtyp: {base} Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n"
         "Schreib genau 3 kurze Sätze auf Deutsch: eine liebenswerte Marotte, ein Lieblingsding im Terminal "
         "(z.B. ein Zeichen, ein Befehl, eine Farbe) und etwas, das es gar nicht mag – plus einen typischen "
-        "Ausruf in Anführungszeichen. Keine Einleitung, kein Markdown."
+        "Ausruf in Anführungszeichen. Nenne KEINEN Namen (der Mensch gibt ihm selbst einen) – schreib "
+        "in der dritten Person mit passendem Pronomen. Keine Einleitung, kein Markdown."
     )

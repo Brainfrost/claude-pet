@@ -245,12 +245,17 @@ class Speech(QObject):
             self.on_event("idle", world, pane, force=True)
 
     def generate_persona(self, prof):
-        """Einmalige Persönlichkeit für ein frisch ausgewürfeltes Pet erfinden lassen."""
+        """Einmalige Persönlichkeit für ein Pet erfinden lassen (falls bei der Adoption keine entstand)."""
+        self.invent_persona(prof, lambda text, b=prof.get("born"):
+                            self.persona_ready.emit(text) if self.prof.get("born") == b else None)
+
+    def invent_persona(self, prof, callback):
+        """Haiku erfindet eine Persönlichkeit und ruft callback(text) auf. False ohne claude-CLI."""
         if not self.exe:
-            return
+            return False
         self._run(personas.persona_prompt(prof), system="Du bist kreativ und schreibst knapp.",
-                  on_out=lambda out, b=prof.get("born"): self.persona_ready.emit(out.strip()[:600])
-                  if self.prof.get("born") == b else None, count=False)
+                  on_out=lambda out: callback(out.strip()[:600]), count=False)
+        return True
 
     # ------------------------------------------------------------ intern
     def _trim(self):

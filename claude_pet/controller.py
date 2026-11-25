@@ -595,9 +595,9 @@ def run():
     # noch kein Pet: erst adoptieren (Fenster zu ohne Adoption -> beenden)
     dlg = AdoptionDialog()
 
-    def adopted(cid, pers, name):
+    def adopted(cid, pers, name, persona):
         app.setQuitOnLastWindowClosed(False)
-        new = profile.adopt(cid, pers, name)
+        new = profile.adopt(cid, pers, name, persona or None)
         log.info("Adoptiert: %s (%s, %s)", name, cid, pers)
         app._ctl = Controller(app, new, fresh=True)
 
