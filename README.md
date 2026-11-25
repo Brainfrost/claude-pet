@@ -3,6 +3,9 @@
 Ein Desktop-Pet, das auf dem Text deiner Claude-Code-Sessions im Windows Terminal lebt:
 jede sichtbare Textzeile ist eine Plattform, auf der es läuft, sitzt, schläft und herumspringt.
 
+**Für Kollegen:** siehe [ANLEITUNG.md](ANLEITUNG.md) – `install.cmd` doppelklicken, fertig.
+(`update.cmd` aktualisiert, `uninstall.cmd` entfernt Autostart und auf Wunsch die Daten.)
+
 ## Starten
 
 `start.cmd` (oder `run.pyw` doppelklicken) – startet ohne Konsolenfenster; mit Autostart läuft es ab
@@ -28,7 +31,13 @@ python -m venv .venv
 | `speech.py` / `personas.py` | Haiku-Sprüche + Aktionen, Grund- und individuelle Persönlichkeit |
 | `growth.py` / `stats.py` | Entwicklung: XP aus den Transcripts, Stufen, Accessoires, Tricks, Bindung, Stimmung |
 | `creatures.py` | rendert die Figuren aus `design/pet-data.json` |
-| `windows.py` | Fenster: Pet, Sprechblase, Reiter-Effekt, Entwickler-Ansicht |
+| `windows.py` | Fenster: Pet, Sprechblase, Reiter-Effekt, Jahreszeiten, Traumwolke, Bug-Jagd, Entwickler-Ansicht |
+| `seasons.py` | Laub/Schnee/Blüten fallen auf Textzeilen und bleiben liegen |
+| `diary.py` / `book.py` | Tagebuch (Zähler, Haiku-Einträge, Wochenrückblick) und das Lesefenster |
+| `dreams.py` | Traumbilder beim Schlafen |
+| `treasure.py` | Schatzkiste: Futterwörter mit Seltenheitsstufen |
+| `bughunt.py` | Mini-Spiel Bug-Jagd |
+| `daily.py` | Tageszeit, Tagesmomente, Pausen-Messung |
 | `tray.py` | Tray-Menü |
 | `controller.py` | verbindet alles, Spielschleife |
 | `settings.py` / `quiet.py` / `profile.py` | Einstellungen + Autostart, Ruhemodus, Steckbrief |
@@ -39,7 +48,7 @@ Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 62 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 83 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 
@@ -131,7 +140,7 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
   Kanten. Das Pet jagt ihm nach (verspielt immer, neugierig meist, ängstlich manchmal, faul selten),
   schnappt ihn und bringt ihn auf die Ebene unter deinem Mauszeiger. Du kannst den Ball greifen und werfen.
   Nach 3 Minuten ohne Beachtung wird er weggeräumt (oder Tray → „Ball wegräumen“).
-- **Wörter fressen:** „bug“, „TODO“, „FIXME“, „error“, „Fehler“ im Text – das Pet läuft hin und knabbert
+- **Wörter fressen:** „bug“, „TODO“, „FIXME“, „error“, „Fehler“ (und die Schatzkisten-Wörter) im Text – das Pet läuft hin und knabbert
   das Wort an (der vordere Teil verschwindet kurz unter einem Biss mit Krümeln). Neues Futter im Text
   macht es schneller hungrig. Zähler im Tray unter „Entwicklung“.
 - **Tag und Nacht:** abends gähnt es, nachts schläft es fest und lange, morgens (5–10 Uhr) begrüßt es
@@ -183,3 +192,28 @@ Spruch kurz ein `claude`-Prozess (~330 MB für ~2,5 s).
 2. ✅ Charakter (faul, neugierig, verspielt, ängstlich) und Session-Wahl über die Tabs
 3. ✅ Reaktionen auf Session-Zustand und Textinhalt, Sprechblasen über Haiku
 4. ✅ Entwicklung (Wachstum, Accessoires, Tricks, Bindung, Stimmung), andere Fenster erkunden
+5. ✅ Ideen-Paket: Bote, Tagesmomente, Jahreszeiten, Tagebuch, Träume, Schatzkiste, Bug-Jagd, Installer
+
+## Ideen-Paket
+
+- **Bote:** Ist eine Session nach mindestens 20 s Arbeit fertig und du bist in einem anderen Tab oder
+  Fenster, fliegt das Pet zum Mauszeiger (auch auf andere Bildschirme), hängt sich an und sagt, welcher
+  Tab fertig ist. Höchstens alle 30 s; abschaltbar.
+- **Tagesmomente:** einmal am Tag Mittag (11:45–13:00), Feierabend (Mo–Fr 17:00–18:30) und
+  Freitagnachmittag (14–17 Uhr), nur wenn du gerade am Rechner bist.
+- **Jahreszeiten:** Herbst Laub, Winter (Dez–Feb) Schnee plus rote Mütze, Frühling Blüten, Sommer
+  Pusteblumen-Samen. Teilchen landen auf Textzeilen, scrollen mit, verwelken/schmelzen nach 1–4 Min.,
+  das Pet wirbelt sie beim Laufen auf. Höchstens 40 fallende Teilchen, eigenes klickdurchlässiges Overlay.
+- **Tagebuch** (`%LOCALAPPDATA%\claude-pet\tagebuch.json`): zählt Minuten, fertige Antworten, Fehler,
+  Commits, Pushes, Gefressenes, Ball, Streicheln, Nickerchen, Botengänge, Bug-Jagd-Käfer, Träume.
+  Ab 18 Uhr schreibt Haiku den Tageseintrag in der Stimme des Pets (nur aus den Zählern, vergessene Tage
+  der letzten Woche werden nachgeholt), freitags ab 16 Uhr den Wochenrückblick. Tray → Tagebuch.
+- **Träume:** Schläft das Pet, steigt alle 15–30 s eine Gedankenwolke mit Pixelbild auf – gewichtet
+  nach dem Tag (Ball, Käfer, Commits …), der Figur (Katze → Fisch) und dem Charakter.
+- **Schatzkiste:** 23 Wörter in vier Stufen (gewöhnlich, selten, episch, legendär). Alle sind Futter;
+  das Pet bevorzugt Seltenes, neue seltene Funde werden mit Konfetti gefeiert. Tray → Schatzkiste.
+- **Bug-Jagd** (Tray): 30 s krabbeln Käfer über die Zeilen des Panes, springen zwischen Zeilen. Klick
+  (mit großzügigem, unsichtbarem Trefferhof) zerquetscht sie, das Pet jagt mit (Tempo je Charakter,
+  Jagdfieber: mindestens 60 Energie, Spiel kostet nur ¼ Energie). Punktestand oben rechts, Teamrekord.
+- **Installer:** `install.ps1` prüft Windows Terminal, claude-CLI und Python ≥ 3.11 (bietet winget an),
+  legt `.venv` an, installiert Pakete, startet das Pet (das trägt den Autostart selbst ein).
