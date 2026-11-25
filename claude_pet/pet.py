@@ -462,6 +462,32 @@ class Pet:
         self.placed = True
         return True
 
+    def come_to_user(self):
+        """Bote: zum Mauszeiger fliegen (egal wo – auch aus einem Tab heraus oder auf einen anderen
+        Bildschirm) und sich dort anhängen."""
+        if self.state in ("held", "cling"):
+            return False
+        self.placed = True
+        self.support, self.busy, self.pane = None, True, None
+        self.clip_y = self.tab_target = None
+        self.vx = self.vy = 0.0
+        self.state = "fly"
+        return True
+
+    def _fly(self, dt, cursor):
+        tx, ty = cursor[0], cursor[1] + self.H + 6
+        dx, dy = tx - self.x, ty - self.y
+        dist = (dx * dx + dy * dy) ** 0.5
+        speed = 1700 * self.S
+        if dist <= speed * dt or dist < 8:
+            self.x, self.y = tx, ty
+            self.cling(0.0, self.H + 6)
+            self.busy = True
+            return
+        self.facing = 1 if dx >= 0 else -1
+        self.x += dx / dist * speed * dt
+        self.y += dy / dist * speed * dt
+
     def cling(self, off_x, off_y):
         self.state, self.support, self.busy = "cling", None, True
         self.cling_off = (off_x, off_y)
@@ -513,6 +539,9 @@ class Pet:
         if st == "cling":
             self.x = cursor[0] + self.cling_off[0]
             self.y = cursor[1] + self.cling_off[1]
+            return
+        if st == "fly":
+            self._fly(dt, cursor)
             return
         if st in TRANSITION:
             self._transition(dt)
@@ -938,7 +967,7 @@ class Pet:
         st = self.state
         if st == "jump":
             st = "fall" if self.vy > 0 else "jump"
-        elif st == "cling":
+        elif st in ("cling", "fly"):
             st = "fall"
         elif st == "crouch":
             st = "sit"

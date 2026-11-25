@@ -197,8 +197,8 @@ class Brain:
         self.cursor = cursor
         self._track_cursor(dt, cursor)
         pet = self.pet
-        if pet.state == "talk":
-            return                                    # erst ausreden
+        if pet.state in ("talk", "fly"):
+            return                                    # erst ausreden / erst ankommen
         if pet.state == "cling":
             self.cling_t -= dt
             if self.cling_t <= 0:

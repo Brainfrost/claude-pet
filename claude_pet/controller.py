@@ -212,6 +212,21 @@ class Controller:
             self.pet.carrying = False
         self.ball.carried_by = "user"
 
+    def terminal_focused(self):
+        """Ist das Windows Terminal gerade das aktive Fenster?"""
+        return bool(self.world.ok and winapi.user32.GetForegroundWindow() == self.world.snap.hwnd)
+
+    def messenger(self, tab):
+        """Bote: eine Session ist fertig und du schaust woanders hin -> das Pet holt dich."""
+        now = time.time()
+        if (not self.settings.get("messenger", True) or self.quiet_reason
+                or now - getattr(self, "_messenger_t", 0) < 30):
+            return
+        if self.pet.come_to_user():
+            self._messenger_t = now
+            self._messenger_text = tab[:40]
+            log.info("Bote: %s ist fertig", tab)
+
     def on_fetched(self):
         self.prof["fetched"] = self.prof.get("fetched", 0) + 1
         self.speech.canned("fetch", force=random.random() < 0.5)
@@ -462,7 +477,12 @@ class Controller:
         self._update_visibility(now)
         self.place()
         if pet.state != self._prev_state:
-            if pet.state == "cling":
+            if pet.state == "cling" and getattr(self, "_messenger_text", None):
+                self.speech.canned("messenger", force=True, tab=self._messenger_text)
+                self._messenger_text = None
+                self.brain.cling_t = 7.0
+                self.pet._effect("!", life=1.2)
+            elif pet.state == "cling":
                 self.speech.canned("cling")
                 self.interact("cling")
             self._prev_state = pet.state
@@ -547,7 +567,7 @@ class Controller:
         st = pet.state
         if self.quiet_reason:
             iv = 250
-        elif (st in AIR or st in TRANSITION or st in ("held", "cling", "walk") or pet.effects
+        elif (st in AIR or st in TRANSITION or st in ("held", "cling", "walk", "fly") or pet.effects
               or pet.squash > 0 or self.bubble.isVisible() or self.debug_on
               or (self.ball is not None and not (self.ball.resting and self.ball.vx == 0))):
             iv = 16

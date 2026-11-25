@@ -46,6 +46,7 @@ class Reactions:
         self.seen = set()
         self.seen_order = deque()
         self.tab_states = {}
+        self.working_since = {}         # Tab -> seit wann Claude dort arbeitet
         self.last = {}
         self.primed = False
         self.buffer = deque(maxlen=BUFFER_LINES)   # neu erschienener Inhalt seit dem letzten Kommentar
@@ -73,6 +74,13 @@ class Reactions:
             states[k] = t.state
             prev = self.tab_states.get(k)
             relevant = k == home_key or t.selected
+            if t.state == "working" and prev != "working":
+                self.working_since[k] = time.time()
+            if prev == "working" and t.state == "idle":
+                # Bote: lange Arbeit fertig, und du schaust gerade nicht hin
+                worked = time.time() - self.working_since.pop(k, time.time())
+                if worked >= 20 and (not t.selected or not self.ctl.terminal_focused()):
+                    self.ctl.messenger(k)
             if prev and prev != t.state and relevant:
                 if prev == "working" and t.state == "idle":
                     events.append(("done", ""))

@@ -16,6 +16,7 @@ TALK = (("aus", "Aus (nur auf Wunsch)"), ("wenig", "Wenig"), ("normal", "Normal"
 BREAK_MIN = ((60, "1 Stunde"), (90, "1,5 Stunden"), (120, "2 Stunden"), (150, "2,5 Stunden"))
 SWITCHES = (("bubbles", "Sprechblasen anzeigen"),
             ("break_reminder", "Pausen-Erinnerung"),
+            ("messenger", "Bote: holt mich, wenn eine Session fertig ist"),
             ("quiet_calls", "Ruhemodus bei Calls (Mikrofon aktiv)"),
             ("quiet_fullscreen", "Ruhemodus bei Vollbild/Präsentation"),
             ("autostart", "Mit Windows starten"))

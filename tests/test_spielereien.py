@@ -156,7 +156,7 @@ def test_git_patterns():
 
 
 def test_all_canned_lines_format():
-    values = {"word": "Bug", "today": 3, "hours": "2 Stunden"}
+    values = {"word": "Bug", "today": 3, "hours": "2 Stunden", "tab": "Checkout prüfen"}
     for kind, by_pers in CANNED.items():
         for pers, lines in by_pers.items():
             for line in lines:

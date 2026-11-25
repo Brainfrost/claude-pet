@@ -136,3 +136,18 @@ def test_pet_coming_out_of_a_tab_jumps_into_the_text_and_does_not_stick_to_the_t
                 on_top += pet.support.row <= 1
         top_share.append(on_top / max(1, samples))
     assert sum(top_share) / len(top_share) < 0.35, top_share
+
+
+def test_messenger_pet_flies_to_cursor_and_clings():
+    w = World()
+    w.update(make_snapshot(["x" * 70] * 8, rows=20))
+    pet = Pet(creatures.get("geist"), "jung", "verspielt")
+    pet.placed, pet.state = True, "hidden"                 # sogar aus einem versteckten Tab heraus
+    pet.x, pet.y = 100, 100
+    assert pet.come_to_user()
+    cursor = (2600, 500)                                   # auf einem anderen Bildschirm
+    for _ in range(60 * 4):
+        pet.step(1 / 60, w, floor, VB, cursor)
+        if pet.state == "cling":
+            break
+    assert pet.state == "cling" and abs(pet.x - cursor[0]) < 1

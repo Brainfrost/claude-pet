@@ -18,6 +18,7 @@ DEFAULTS = {
     "dnd": False,                # "Bitte nicht stören" (manuell)
     "break_reminder": True,      # Pausen-Erinnerung
     "break_minutes": 120,        # nach so vielen Minuten Arbeit am Stück
+    "messenger": True,           # Bote: holt dich, wenn eine Session fertig ist und du woanders bist
 }
 SIZE_FACTOR = {"klein": 0.67, "normal": 1.0, "gross": 1.5}
 TALK_FACTOR = {"aus": 0.0, "wenig": 0.5, "normal": 1.0, "viel": 1.6}

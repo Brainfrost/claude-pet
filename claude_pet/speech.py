@@ -67,6 +67,12 @@ CANNED = {
         "verspielt": ["Huckepack!", "Hab dich!"],
         "aengstlich": ["Bitte nicht loslassen…"],
     },
+    "messenger": {
+        "faul": ["„{tab}“ ist fertig. Ich bin extra aufgestanden.", "Psst … „{tab}“ wartet auf dich."],
+        "neugierig": ["„{tab}“ ist fertig – was ist rausgekommen? Schau mal!", "Komm mit! „{tab}“ ist fertig!"],
+        "verspielt": ["Hier bin ich! „{tab}“ ist fertig – ab ins Terminal!", "Tadaa, „{tab}“ ist durch!"],
+        "aengstlich": ["Ä-ähm, „{tab}“ ist fertig … ich wollte nur Bescheid sagen.", "„{tab}“ ist fertig – nicht böse sein, dass ich störe!"],
+    },
     "fetch": {
         "faul": ["Da. Jetzt lass mich schlafen.", "Bitte. Einmal reicht."],
         "neugierig": ["Hier! Nochmal?", "Gefunden! Wo fliegt er als Nächstes hin?"],
