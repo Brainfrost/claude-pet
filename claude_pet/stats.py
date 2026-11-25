@@ -8,7 +8,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -62,7 +62,7 @@ class StatsWatcher(QThread):
         while not self._stop:
             try:
                 d = self._scan(state)
-                if d["tools"] or d["prompts"] or d["sessions"]:
+                if d["tools"] or d["prompts"] or d["sessions"] or d["minutes"]:
                     self.delta.emit(d)
                 self._save(state)
             except Exception:
@@ -79,22 +79,27 @@ class StatsWatcher(QThread):
                 s = json.load(f)
             s.setdefault("offsets", {})
             s.setdefault("sessions", [])
+            s.setdefault("minutes", [])
             return s
         except (OSError, ValueError):
-            return {"offsets": {}, "sessions": []}
+            return {"offsets": {}, "sessions": [], "minutes": []}
 
     def _save(self, state):
         os.makedirs(os.path.dirname(STATE), exist_ok=True)
         state["sessions"] = state["sessions"][-500:]
+        # schon gezählte aktive Minuten: nur die letzten zwei Tage aufheben
+        keep = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
+        state["minutes"] = sorted(m for m in state.get("minutes", []) if m >= keep)
         tmp = STATE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(state, f)
         os.replace(tmp, STATE)
 
     def _scan(self, state):
-        d = {"cats": {}, "tools": 0, "prompts": 0, "sessions": 0}
+        d = {"cats": {}, "tools": 0, "prompts": 0, "sessions": 0, "minutes": {}}
         offsets = state["offsets"]
         known_sessions = set(state["sessions"])
+        self._seen_min = set(state.setdefault("minutes", []))
         files = glob.glob(os.path.join(PROJECTS, "*", "*.jsonl")) + \
             glob.glob(os.path.join(PROJECTS, "*", "*", "subagents", "*.jsonl"))
         for path in files:
@@ -117,11 +122,13 @@ class StatsWatcher(QThread):
             if end < 0:
                 continue
             offsets[path] = off + end + 1
+            sub = os.sep + "subagents" + os.sep in path
             for raw in chunk[:end].split(b"\n"):
-                self._line(raw, d, known_sessions, state)
+                self._line(raw, d, known_sessions, state, sub)
+        state["minutes"] = sorted(self._seen_min)
         return d
 
-    def _line(self, raw, d, known_sessions, state):
+    def _line(self, raw, d, known_sessions, state, sub=False):
         if b'tool_use' not in raw and b'"user"' not in raw:
             return
         try:
@@ -131,10 +138,20 @@ class StatsWatcher(QThread):
         ts = e.get("timestamp")
         if ts:
             try:
-                if datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() < self.born:
-                    return
+                t = datetime.fromisoformat(ts.replace("Z", "+00:00"))
             except ValueError:
-                pass
+                t = None
+            if t is not None:
+                if t.timestamp() < self.born:
+                    return
+                # aktive Minute (Ortszeit), jede nur einmal – auch wenn Subagents parallel laufen
+                key = t.astimezone().strftime("%Y-%m-%dT%H:%M")
+                if key not in self._seen_min:
+                    self._seen_min.add(key)
+                    day = key[:10]
+                    d["minutes"][day] = d["minutes"].get(day, 0) + 1
+        if sub:
+            return          # Subagents: nur die aktive Zeit zählt, nicht ihre vielen Tool-Aufrufe
         sid = e.get("sessionId")
         if sid and sid not in known_sessions:
             known_sessions.add(sid)

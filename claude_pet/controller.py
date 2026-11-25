@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication
 from datetime import date
 
 from . import creatures, daily, growth, profile, quiet, settings, vision, winapi
+from .adoption import AdoptionDialog
 from .ball import Ball
 from .brain import Brain
 from .pet import AIR, TRANSITION, Pet
@@ -36,12 +37,12 @@ MILESTONE_TEXT = {
 
 
 class Controller:
-    def __init__(self, app):
+    def __init__(self, app, prof, fresh=False):
         self.app = app
         self.world = World()
         self.settings = settings.load()
         self.quiet_reason = None
-        self.prof = growth.ensure_defaults(profile.load())
+        self.prof = growth.ensure_defaults(prof)
         growth.absence(self.prof)
         self.renderer = creatures.Renderer()
         self._new_pet()
@@ -94,6 +95,8 @@ class Controller:
         self.timer.timeout.connect(self.tick)
         self.timer.start(self._interval)
         self.tray = Tray(self)
+        if fresh:
+            QTimer.singleShot(2500, lambda: self._say(f"Hallo! Ich bin {self.prof['name']}. Schön, dass du mich adoptiert hast!"))
 
     # ================================================================ Pet & Profil
     def _new_pet(self):
@@ -117,17 +120,11 @@ class Controller:
             pet.stage = pr["stage"]
             pet.set_scale(pet.line_h)
 
-    def reroll(self):
-        """Steckbrief löschen und ein neues Pet auswürfeln."""
-        self.prof = growth.ensure_defaults(profile.reroll())
-        self.stats.reset(self.prof.get("born"))
-        self._new_pet()
-        self._apply_settings()
-        self.brain.on_world(self.world)
-        self.pet.on_world(self.world)
-        self.speech.set_profile(self.prof)
-        self.speech.generate_persona(self.prof)
-        self.tray.update_identity()
+    def dev_reset(self):
+        """Nur für die Entwicklung (CLAUDE_PET_DEV=1): Pet archivieren und neu adoptieren."""
+        path = profile.archive("Entwicklung: zurückgesetzt")
+        log.info("Pet archiviert: %s", path)
+        self.quit()
 
     def on_persona(self, text):
         if not text:
@@ -590,6 +587,22 @@ class Controller:
 
 def run():
     app = QApplication([])
-    app.setQuitOnLastWindowClosed(False)
-    app._ctl = Controller(app)
+    prof = profile.load()
+    if prof is not None:
+        app.setQuitOnLastWindowClosed(False)
+        app._ctl = Controller(app, prof)
+        return app.exec()
+    # noch kein Pet: erst adoptieren (Fenster zu ohne Adoption -> beenden)
+    dlg = AdoptionDialog()
+
+    def adopted(cid, pers, name):
+        app.setQuitOnLastWindowClosed(False)
+        new = profile.adopt(cid, pers, name)
+        log.info("Adoptiert: %s (%s, %s)", name, cid, pers)
+        app._ctl = Controller(app, new, fresh=True)
+
+    dlg.adopted.connect(adopted)
+    dlg.show()
+    app._dlg = dlg
     return app.exec()
+

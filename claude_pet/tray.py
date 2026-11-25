@@ -2,6 +2,7 @@
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
+import os
 from datetime import date
 
 from . import creatures, growth
@@ -29,7 +30,6 @@ class Tray:
         self.a_info.setEnabled(False)
         m.addAction(self.a_info)
         m.addSeparator()
-        self._action(m, "Neues Pet auswürfeln", ctl.reroll)
         self._action(m, "Was denkst du gerade?", lambda: ctl.speech.ask_now(ctl.world, ctl.pet.pane or 0))
         self._action(m, "Ausflug machen!", lambda: setattr(ctl.pet, "want_adventure", True))
         self._action(m, "Ball werfen", ctl.throw_ball)
@@ -47,6 +47,8 @@ class Tray:
         self.m_acc = m.addMenu("Accessoires")
         m.aboutToShow.connect(self._refresh)
         m.addSeparator()
+        if os.environ.get("CLAUDE_PET_DEV") == "1":
+            self._action(m, "Entwicklung: Pet archivieren und neu adoptieren", ctl.dev_reset)
         self._action(m, "Beenden", ctl.quit)
         self.icon.setContextMenu(m)
         self.update_identity()
@@ -113,9 +115,11 @@ class Tray:
         pr = self.ctl.prof
         st = pr.get("stats", {})
         nxt, need = growth.next_stage(pr["xp"])
+        active = growth.hours(pr["xp"])
         tricks = [growth.TRICKS[t].split(" – ")[0] for t in pr.get("tricks", [])]
         lines = [
-            f"Stufe: {pr.get('stage')}  ·  XP {pr['xp']}" + (f" / {need} bis {nxt}" if nxt else ""),
+            f"Stufe: {pr.get('stage')}  ·  aktive Zeit {active}"
+            + (f" / {growth.hours(need)} bis {nxt}" if nxt else ""),
             f"Bindung {pr['bond']:.0f}/100  ·  Stimmung {pr['mood']:.0f}/100",
             f"Seit Geburt: {st.get('tools', 0)} Tool-Aufrufe, {st.get('prompts', 0)} Eingaben, "
             f"{st.get('sessions', 0)} Sessions",
@@ -127,13 +131,13 @@ class Tray:
         for t in lines:
             self.m_dev.addAction(t).setEnabled(False)
         self.m_acc.clear()
-        cats = st.get("cats", {})
-        for acc, (cat, need_n, desc) in growth.ACCESSORIES.items():
+        for acc, (_keys, _need, desc) in growth.ACCESSORIES.items():
             label = desc.split(" – ")[0]
+            have, need_n = growth.accessory_progress(pr, acc)
             if acc in pr.get("accessories", []):
                 a = self.m_acc.addAction(label)
                 a.setCheckable(True)
                 a.setChecked(acc not in pr.get("accessories_off", []))
                 a.toggled.connect(lambda on, acc=acc: self.ctl.toggle_accessory(acc, on))
             else:
-                self.m_acc.addAction(f"{label} – gesperrt ({cats.get(cat, 0)}/{need_n})").setEnabled(False)
+                self.m_acc.addAction(f"{label} – gesperrt ({have}/{need_n})").setEnabled(False)

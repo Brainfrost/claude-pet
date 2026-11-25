@@ -39,7 +39,7 @@ Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 40 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 48 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 
@@ -58,11 +58,14 @@ Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
 - **Klick** = anstupsen (weckt es auf)
 - **Hin und her darüberfahren** = streicheln
 
-## Figur und Charakter
+## Adoption, Figur und Charakter
 
-Beim ersten Start wird eine der 8 Figuren aus `design/pet-data.json` ausgewürfelt (Entwürfe:
-`design/claude-pet-entwuerfe.html`). Jede Figur hat einen Lieblingscharakter (50 %), sonst einer der
-anderen. Steckbrief: `%LOCALAPPDATA%\claude-pet\profile.json`. Tray → „Neues Pet auswürfeln“.
+Beim ersten Start öffnet sich das **Adoptionsfenster** (`claude_pet/adoption.py`): bis zu 5× würfeln
+(möglichst lauter verschiedene Figuren aus `design/pet-data.json`), zwischen den Vorschlägen hin- und
+herblättern, einen Namen vergeben, adoptieren. **Figur, Charakter und Name bleiben danach für immer** –
+es gibt kein Neu-Würfeln mehr. Jede Figur hat einen Lieblingscharakter (50 %), sonst einer der anderen.
+Steckbrief: `%LOCALAPPDATA%\claude-pet\profile.json`; frühere Pets liegen in `…\claude-pet\archiv\`.
+Fürs Entwickeln: mit `set CLAUDE_PET_DEV=1` gibt es im Tray „Pet archivieren und neu adoptieren“.
 
 | Charakter | Verhalten |
 |---|---|
@@ -98,14 +101,18 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
 ## Entwicklung (Etappe 4)
 
 - **Fortschritt** aus deinen Claude-Code-Transcripts (`~/.claude/projects`, nur lokal gelesen, nur neue
-  Zeilen, nur seit der Geburt des Pets): XP = Tool-Aufrufe + 3 × Eingaben + 10 × Sessions.
-- **Wachstum:** Baby (im Ei) → jung ab 400 XP → erwachsen ab 2500 XP (Figur wird größer).
-- **Accessoires** nach Arbeitsart: Bauhelm ab 150 Bash/PowerShell-Aufrufen, Brille ab 25 Web-Recherchen,
-  Lupe ab 60 Suchen (Grep/Glob). Im Tray unter „Accessoires“ an-/abschaltbar.
+  Zeilen, nur seit der Adoption). Maßstab sind **aktive Minuten** (jede Minute mit Claude-Aktivität zählt
+  einmal, höchstens 8 h pro Tag) – robust gegen Automatisierungs-Tage. Subagents zählen nur als Zeit.
+- **Wachstum** (kalibriert an echten Daten, ~4 aktive h pro Arbeitstag): Baby (im Ei) → jung nach 20 aktiven
+  Stunden (~1–2 Wochen) → erwachsen nach 120 Stunden (~2 Monate). Die Figur wird größer.
+- **Accessoires** nach Arbeitsart (nur eigene Sessions): Bauhelm ab 3000 Bash/PowerShell-Aufrufen,
+  Brille ab 600 Web-Recherchen, Lupe ab 800 Lese-/Suchaufrufen – je ein bis drei Wochen. Im Tray unter
+  „Accessoires“ an-/abschaltbar bzw. mit Fortschritt.
 - **Tricks:** Doppelsprung (ab jung: springt höher, legt in der Luft nach), Purzelbaum (ab Bindung 40),
   Weitsprung (erwachsen: neugierige/verspielte Pets gehen auf Abenteuer zu anderen Fenstern).
-- **Bindung** (0–100): Streicheln, Anstupsen, Anhängen und gemeinsame Zeit erhöhen sie, Werfen senkt sie
-  (außer beim verspielten), lange Abwesenheit kostet etwas. Höhere Bindung → hängt sich öfter an die Maus.
+- **Bindung** (0–100): wächst langsam – durch Streicheln, Anstupsen, Anhängen höchstens 8 Punkte pro Tag,
+  dazu 0,5 pro aktiver Stunde gemeinsamer Arbeit. Werfen senkt sie (außer beim verspielten), lange
+  Abwesenheit kostet etwas. Höhere Bindung → hängt sich öfter an die Maus; ab 40 gibt's den Purzelbaum.
 - **Stimmung** (0–100): Erfolge und Streicheln heben, Fehler und Werfen senken; pendelt sich bei 60 ein.
   Schlechte Laune → sitzt mehr herum; gute Laune → springt mehr. Fließt auch in Haikus Sprüche ein.
 - **Andere Fenster erkunden:** Oberkanten anderer Fenster sind Plattformen (verdeckte Stellen ausgenommen,

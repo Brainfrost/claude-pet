@@ -75,3 +75,24 @@ def test_all_creatures_render_in_all_states(qapp):
                 assert any(img.pixelColor(x, y).alpha() > 0
                            for x in range(0, img.width(), 3) for y in range(0, img.height(), 3)), \
                     (c["id"], state, stage)
+
+
+def test_stats_counts_active_minutes_once_and_subagents_only_as_time(tmp_path, monkeypatch):
+    proj = tmp_path / "projects" / "p"
+    (proj / "sess" / "subagents").mkdir(parents=True)
+    monkeypatch.setattr(stats, "PROJECTS", str(tmp_path / "projects"))
+    born = datetime.now(timezone.utc) - timedelta(hours=1)
+    t1 = (born + timedelta(minutes=10)).replace(second=5)
+    t2 = t1 + timedelta(seconds=30)                  # gleiche Minute
+    t3 = t1 + timedelta(minutes=2)
+
+    def entry(ts, sid="s1"):
+        return json.dumps({"type": "assistant", "timestamp": ts.isoformat(), "sessionId": sid,
+                           "message": {"content": [{"type": "tool_use", "name": "Bash"}]}})
+    (proj / "a.jsonl").write_text(entry(t1) + "\n" + entry(t2) + "\n", encoding="utf-8")
+    sub = "\n".join(entry(t1 + timedelta(seconds=i)) for i in range(20)) + "\n" + entry(t3) + "\n"
+    (proj / "sess" / "subagents" / "x.jsonl").write_text(sub, encoding="utf-8")
+    w = stats.StatsWatcher(born.isoformat())
+    d = w._scan({"offsets": {}, "sessions": [], "minutes": []})
+    assert sum(d["minutes"].values()) == 2, "zwei verschiedene aktive Minuten"
+    assert d["tools"] == 2 and d["cats"] == {"bash": 2}, "Subagents zählen nicht als eigene Arbeit"
