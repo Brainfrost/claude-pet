@@ -145,7 +145,7 @@ class Brain:
         pet = self.pet
         if self.goal and self.goal[0] == "eat":
             self.goal, pet.busy = None, False          # du zeigst auf etwas: das ist wichtiger
-        if (self.goal or pet.busy or pet.state in ("hidden", "held", "cling", "sleep", "eat")
+        if (self.goal or pet.busy or pet.state in ("hidden", "held", "cling", "sleep", "eat", "talk")
                 or not pet.grounded or pet.pane is None or plat.pane != pet.pane):
             return False
         pet.facing = 1 if x > pet.x else -1
@@ -192,6 +192,8 @@ class Brain:
         self.cursor = cursor
         self._track_cursor(dt, cursor)
         pet = self.pet
+        if pet.state == "talk":
+            return                                    # erst ausreden
         if pet.state == "cling":
             self.cling_t -= dt
             if self.cling_t <= 0:

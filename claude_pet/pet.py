@@ -9,7 +9,7 @@ import random
 from .creatures import STAGE_PX
 from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_VISION, ROW_WINDOW, Platform
 
-GROUND = {"idle", "walk", "sit", "sleep", "happy", "eat"}
+GROUND = {"idle", "walk", "sit", "sleep", "happy", "eat", "talk"}
 AIR = {"fall", "jump"}
 # Abläufe beim Hinein-/Herausklettern in einen Tab-Reiter (zeitgesteuert, keine Physik)
 TRANSITION = {"crouch", "hang", "climb_in", "climb_out"}
@@ -274,6 +274,18 @@ class Pet:
             if g:
                 self.facing = -self.facing
                 self.state, self.timer = "idle", 1.5
+
+    def start_talking(self):
+        """Etwas sagen: stehen bleiben, bis die Sprechblase weg ist (Rede-Animation)."""
+        if self.grounded and self.state not in ("sleep", "eat", "talk"):
+            self.state, self.run = "talk", 1.0
+            self.target_x = self.x
+            return True
+        return False
+
+    def stop_talking(self):
+        if self.state == "talk":
+            self.state, self.timer = "idle", random.uniform(0.6, 1.5)
 
     def eat(self):
         """Ein Wort anknabbern (der Controller zeigt den Biss im Text)."""
@@ -548,6 +560,8 @@ class Pet:
             self._start_fall(0, 0)
             return
         st = self.state
+        if st == "talk":
+            return                                    # steht still und redet
         if st == "eat":
             self.timer -= dt
             if random.random() < dt * 6:

@@ -89,3 +89,41 @@ def test_pet_is_sated_after_eating_and_mouse_has_priority():
     pet.busy = True
     word2, x2, plat2 = w.word_at(2 * CELL_W + 3, 40 + 4 * LINE_H + LINE_H / 2)
     assert brain.hovered(word2, x2, plat2, w), "Maus hat Vorrang vor dem Weg zum Futter"
+
+
+def test_pet_stands_still_while_talking():
+    random.seed(3)
+    w = World()
+    snap = make_snapshot(["x" * 70] * 8, rows=20)
+    pet = Pet(creatures.get("geist"), "jung", "verspielt")
+    brain = Brain(pet, "verspielt")
+
+    def run(seconds):
+        for f in range(int(seconds * 60)):
+            if f % 4 == 0:
+                w.update(snap)
+                brain.on_world(w)
+                pet.on_world(w)
+            brain.tick(1 / 60, w, (5000, 5000))
+            pet.step(1 / 60, w, lambda x: 1100, (-2000, -100, 4000, 1200), (5000, 5000))
+    run(3)
+    while not pet.grounded:
+        run(0.1)
+    assert pet.start_talking()
+    x, y = pet.x, pet.y
+    run(8)
+    assert pet.state == "talk" and (pet.x, pet.y) == (x, y), "steht still, solange es redet"
+    pet.stop_talking()
+    moved = False
+    for _ in range(40):
+        run(0.5)
+        moved = moved or (pet.x, pet.y) != (x, y)
+    assert moved, "danach geht es weiter"
+
+
+def test_talk_animation_renders(qapp):
+    r = creatures.Renderer()
+    c = creatures.get("geist")
+    frames = {r.render(c, variant="verspielt", state="talk", t=t / 100, walk_i=0, blinking=False, facing=1,
+                       px=3, stage="jung").cacheKey() for t in range(0, 40, 4)}
+    assert len(frames) >= 2, "wippt beim Reden"

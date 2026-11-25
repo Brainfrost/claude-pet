@@ -83,7 +83,7 @@ def pose_rows(c, state, t, walk_i):
         rows, name = list(_frames(c, "sit")[0]), "sit"
     else:
         rows, name = list(_frames(c, "stand")[0]), "stand"
-    period = 1.3 if state == "sleep" else 0.85
+    period = 1.3 if state == "sleep" else 0.16 if state == "talk" else 0.85   # reden: schnelles Wippen
     br = c.get("breathRow", {}).get(name)
     if br is not None and int(t / period) % 2 == 1:
         rows.pop(br)

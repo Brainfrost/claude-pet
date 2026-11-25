@@ -79,6 +79,7 @@ class Controller:
         self._vis_check = self._win_check = self._vision_check = self._quiet_check = 0.0
         self._debug_t = self._log_t = self._hover_t = 0.0
         self._hover_word = None
+        self._pending_action = None
         self._interval = 16
 
         self.watcher = TerminalWatcher()
@@ -292,7 +293,10 @@ class Controller:
             self.interact("thrown")
 
     def on_action(self, action, target):
-        """Von Haiku gewählte Aktion umsetzen."""
+        """Von Haiku gewählte Aktion – erst nach dem Satz (das Pet redet gerade)."""
+        self._pending_action = (action, target)
+
+    def _do_action(self, action, target):
         if action == "verstecken":
             self.brain.hide_somewhere(self.world)
         elif action == "hinlaufen":
@@ -433,7 +437,7 @@ class Controller:
             self.ball_win.hide()
             self._adapt_rate(pet)
             return
-        if pet.state in ("idle", "sit", "happy") and abs(cursor[0] - pet.x) > pet.W * 1.5:
+        if pet.state in ("idle", "sit", "happy", "talk") and abs(cursor[0] - pet.x) > pet.W * 1.5:
             pet.facing = 1 if cursor[0] > pet.x else -1          # schaut zu dir
         self._update_surroundings(now)
         growth.drift(self.prof, dt)
@@ -460,6 +464,7 @@ class Controller:
         visible = self.win.isVisible() and pet.state != "hidden"
         self.speech.tick(self.world, pet.pane or 0, visible and pet.grounded)
         self.bubble.follow(pet, visible)
+        self._talk(pet)
         self._adapt_rate(pet)
         if self.debug_on:
             if now - self._scan_t > 0.7:
@@ -509,6 +514,20 @@ class Controller:
             self.ball_win.setVisible(visible)
         if ball.carried_by != "user":
             self.ball_win.place(ball)
+
+    def _talk(self, pet):
+        """Während die Sprechblase zu sehen ist, bleibt das Pet stehen und redet; danach macht es,
+        was Haiku als Aktion vorgeschlagen hat."""
+        speaking = bool(self.bubble.text) and self.bubble.isVisible()
+        if speaking:
+            if pet.state != "talk":
+                pet.start_talking()           # in der Luft: klappt nach der Landung
+        elif pet.state == "talk":
+            pet.stop_talking()
+        if not speaking and self._pending_action and pet.state != "talk":
+            action, target = self._pending_action
+            self._pending_action = None
+            self._do_action(action, target)
 
     def _play_tab_effects(self):
         pet = self.pet
