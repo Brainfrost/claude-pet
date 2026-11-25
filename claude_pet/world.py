@@ -181,10 +181,13 @@ class World:
                 return p
         return None
 
-    def landing(self, x, y_old, y_new, tol):
-        """Höchste Plattform, durch deren Oberkante die Füße gerade von oben gefallen sind."""
+    def landing(self, x, y_old, y_new, tol, skip_y=None):
+        """Höchste Plattform, durch deren Oberkante die Füße gerade von oben gefallen sind.
+        skip_y: Ebene auf dieser Höhe ignorieren (absichtlich durchfallen, um tiefer zu kommen)."""
         best = None
         for p in self.platforms:
+            if skip_y is not None and abs(p.y - skip_y) < 1.5:
+                continue
             if y_old <= p.y + 0.5 and y_new >= p.y and p.covers(x, tol):
                 if best is None or p.y < best.y:
                     best = p

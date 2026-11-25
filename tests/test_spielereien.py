@@ -77,14 +77,16 @@ def test_playful_pet_fetches_ball_to_cursor():
 def test_pet_walks_to_bug_and_eats_it():
     random.seed(4)
     world = World()
-    snap = make_snapshot(["● Hier ist noch ein Bug versteckt " + "." * 30] * 2 + ["x" * 70] * 6, rows=20)
+    snap = make_snapshot(["x" * 70] * 5 + ["● Hier ist noch ein Bug versteckt " + "." * 30] * 2 + ["x" * 70] * 6,
+                         rows=20)
     pet = Pet(creatures.get("katze"), "jung", "neugierig")
     brain = Brain(pet, "neugierig")
     eaten = []
     brain.on_ate = lambda word, p, start: eaten.append((word, start))
-    step_all(pet, brain, world, snap, 4)
+    far = (5000, 5000)                       # Mauszeiger weit weg (sonst hängt es sich evtl. dran)
+    step_all(pet, brain, world, snap, 4, cursor=far)
     brain.eat_t = 0
-    step_all(pet, brain, world, snap, 20)
+    step_all(pet, brain, world, snap, 20, cursor=far)
     assert eaten and eaten[0][0].lower() == "bug", (pet.state, brain.goal)
 
 
@@ -159,3 +161,74 @@ def test_all_canned_lines_format():
         for pers, lines in by_pers.items():
             for line in lines:
                 assert line.format(**values), (kind, pers)
+
+
+# ------------------------------------------------------------ Regression: Dauerspringen am oberen Rand
+def test_food_at_top_edge_is_ignored_and_unreachable_goals_are_abandoned():
+    random.seed(9)
+    world = World()
+    snap = make_snapshot(["ganz oben steht ein Fehler"] + ["x" * 70] * 8, rows=20, top=40)
+    pet = Pet(creatures.get("spatz"), "jung", "aengstlich")
+    brain = Brain(pet, "aengstlich")
+    ceiling = (-2000, 0, 4000, 1200)               # Bildschirmrand knapp über dem Terminal
+    for f in range(60 * 4):
+        if f % 4 == 0:
+            world.update(snap)
+            brain.on_world(world)
+            pet.on_world(world)
+        brain.tick(1 / 60, world, (0, 0))
+        pet.step(1 / 60, world, floor, ceiling, (0, 0))
+    assert brain._find_food(world) is None, "Futter am oberen Rand wird ignoriert"
+    # Ziel trotzdem erzwingen: es darf nicht endlos hüpfen
+    brain.set_goal(("eat", "ganz oben steht ein Fehler", 0, 20, "Fehler"))
+    jumps, prev = 0, None
+    for f in range(60 * 20):
+        if f % 4 == 0:
+            world.update(snap)
+            brain.on_world(world)
+            pet.on_world(world)
+        brain.tick(1 / 60, world, (0, 0))
+        pet.step(1 / 60, world, floor, ceiling, (0, 0))
+        if pet.state == "jump" and prev != "jump":
+            jumps += 1
+        prev = pet.state
+        if brain.goal is None:
+            break
+    assert brain.goal is None and jumps <= 6, jumps
+
+
+def test_somersault_always_completes():
+    pet = Pet(creatures.get("spatz"), "jung", "verspielt")
+    pet.tricks = {"purzelbaum"}
+    world = World()
+    world.update(make_snapshot(["x" * 70] * 6, rows=20))
+    for _ in range(200):
+        pet.on_world(world)
+        pet.step(1 / 60, world, floor, VB, (0, 0))
+    for _ in range(40):
+        pet._hop(-450)
+        pet._start_spin(2 * abs(pet.vy) / pet.G)
+        assert pet.spin > 0
+        for _ in range(300):
+            pet.step(1 / 60, world, floor, VB, (0, 0))
+            if pet.spin == 0 and pet.grounded:
+                break
+        assert pet.spin == 0, "Rolle ist ganz zu Ende gedreht"
+
+
+def test_can_jump_down_to_a_lower_line_below_itself():
+    """Regression: früher landete es beim Sprung nach unten immer wieder auf der eigenen Zeile."""
+    world = World()
+    world.update(make_snapshot(["x" * 70] * 8, rows=20))
+    pet = Pet(creatures.get("katze"), "jung", "neugierig")
+    for _ in range(120):
+        pet.on_world(world)
+        pet.step(1 / 60, world, floor, VB, (0, 0))
+    start_row = pet.support.row
+    target = next(p for p in world.platforms if p.row == start_row + 3)
+    pet._ballistic_to(pet.x, target.y, apex=0.7 * pet.line_h)
+    for _ in range(180):
+        pet.step(1 / 60, world, floor, VB, (0, 0))
+        if pet.grounded:
+            break
+    assert pet.support.row > start_row, "ist tiefer gekommen"

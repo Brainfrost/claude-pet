@@ -63,6 +63,8 @@ class Pet:
         self.bond = 10.0
         self.tricks = set()
         self.spin = 0.0             # Purzelbaum: Fortschritt der Drehung (0..1), 0 = aus
+        self.spin_rate = 2.2        # Umdrehungen pro Sekunde, passend zur Flugzeit
+        self.ignore_y = None        # beim Sprung nach unten: durch die eigene Ebene hindurchfallen
         self.double_hop = False     # Doppelsprung: zweiter Hüpfer steht noch aus
         self.want_adventure = False # möchte zu einem anderen Fenster springen (Controller sucht Ziel)
         self.vision_grace = 0       # Bildanalyse hat die Kante kurz verloren: so oft noch tolerieren
@@ -420,6 +422,10 @@ class Pet:
         self._tick_effects(dt)
         self._tick_blink(dt)
         st = self.state
+        if self.spin > 0 and st not in AIR:
+            self.spin += dt * 5
+            if self.spin >= 1:
+                self.spin = 0.0
         if st in ("held", "hidden") or not self.placed:
             return
         if st == "cling":
@@ -486,7 +492,9 @@ class Pet:
             self.vy = -380 * self.S
             self._effect("*", life=0.5)
         if self.spin > 0:
-            self.spin = min(1.0, self.spin + dt * 2.2)
+            self.spin += dt * self.spin_rate
+            if self.spin >= 1:
+                self.spin = 0.0
         self.vy = min(self.vy + self.G * dt, 3500 * self.S)
         nx = self.x + self.vx * dt
         ny = self.y + self.vy * dt
@@ -505,7 +513,9 @@ class Pet:
             ny = t + self.H
             self.vy = abs(self.vy) * 0.2
         if self.vy > 0:
-            p = world.landing(nx, self.y, ny, self.tol)
+            if self.ignore_y is not None and self.y > self.ignore_y + 3:
+                self.ignore_y = None
+            p = world.landing(nx, self.y, ny, self.tol, skip_y=self.ignore_y)
             floor = screen_floor(nx)
             if p is None and ny >= floor:
                 p = Platform(nx - 10 ** 6, nx + 10 ** 6, floor, -1, ROW_SCREEN)
@@ -517,8 +527,8 @@ class Pet:
 
     def _land(self, p):
         impact = self.vy
-        self.spin = 0.0
         self.double_hop = False
+        self.ignore_y = None
         self.y = p.y
         self.vx = self.vy = 0.0
         self.support = p
@@ -740,8 +750,14 @@ class Pet:
         self._effect("!", life=0.6)
         return True
 
+    def _pass_own_floor(self, ty):
+        """Ziel liegt tiefer: die Ebene unter den Füßen darf beim Herunterfallen nicht bremsen."""
+        sp = self.support
+        self.ignore_y = sp.y if sp is not None and ty > sp.y + 2 else None
+
     def leap_to(self, tx, ty):
         """Weiter Sprung über beliebige Distanz (z.B. zurück ins Terminal)."""
+        self._pass_own_floor(ty)
         dist = math.hypot(tx - self.x, ty - self.y)
         T = min(1.6, max(0.6, dist / (1400 * self.S)))
         if ty < self.y:
@@ -752,6 +768,7 @@ class Pet:
         self.state, self.support, self.thrown = "jump", None, True
 
     def _ballistic_to(self, tx, ty, apex):
+        self._pass_own_floor(ty)
         top = min(self.y, ty) - apex
         vy0 = -math.sqrt(2 * self.G * max(1.0, self.y - top))
         t_up = -vy0 / self.G
@@ -762,7 +779,7 @@ class Pet:
         self.facing = 1 if self.vx >= 0 else -1
         self.state, self.support = "jump", None
         if "purzelbaum" in self.tricks and random.random() < 0.25:
-            self.spin = 0.001
+            self._start_spin(T)
 
     def _hop(self, vy):
         self.vy = vy * self.S
@@ -770,9 +787,14 @@ class Pet:
         self.state, self.support = "jump", None
         self._maybe_trick()
 
+    def _start_spin(self, airtime):
+        """Purzelbaum nur bei genug Flugzeit, und so schnell, dass er bis zur Landung rum ist."""
+        if airtime >= 0.3:
+            self.spin, self.spin_rate = 0.001, 1.0 / (airtime * 0.9)
+
     def _maybe_trick(self):
         if "purzelbaum" in self.tricks and random.random() < 0.35:
-            self.spin = 0.001
+            self._start_spin(2 * abs(self.vy) / self.G)
         if "doppelsprung" in self.tricks and random.random() < 0.3:
             self.double_hop = True
 

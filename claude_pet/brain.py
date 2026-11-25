@@ -18,6 +18,7 @@ FOOD = re.compile(r"\b(bugs?|todos?|fixme|errors?|fehler)\b", re.I)
 BALL_INTEREST = {"verspielt": 1.0, "neugierig": 0.8, "aengstlich": 0.4, "faul": 0.15}
 EAT_EVERY = {"verspielt": (20, 50), "neugierig": (25, 60), "aengstlich": (60, 150), "faul": (90, 240)}
 GOAL_TIMEOUT = 25.0
+MAX_GOAL_JUMPS = 4      # so viele Sprünge ohne Erfolg, dann gibt es auf
 
 DECIDE_EVERY = {
     "faul": (60, 150),
@@ -178,7 +179,7 @@ class Brain:
         self._personality_tick(dt, world, cursor)
 
     def set_goal(self, goal):
-        self.goal, self.goal_t = goal, 0.0
+        self.goal, self.goal_t, self.goal_jumps, self._goal_best = goal, 0.0, 0, None
 
     # ------------------------------------------------------------ Ball & Futter
     def _maybe_ball(self, dt):
@@ -216,6 +217,9 @@ class Brain:
         for p in world.term_platforms:
             if p.pane != pet.pane or p.row < 0:
                 continue
+            r = world.pane_rect(p.pane)
+            if r and p.y - pet.H * 1.3 < r[1]:
+                continue                        # zu nah am oberen Rand: kein Platz zum Hinspringen
             m = FOOD.search(p.text)
             if not m:
                 continue
@@ -241,6 +245,13 @@ class Brain:
                 self.ball.carried_by, pet.carrying = None, False
             return
         if pet.state in AIR or pet.state in TRANSITION or pet.state in ("cling", "eat") or not pet.grounded:
+            return
+        if getattr(self, "goal_jumps", 0) > MAX_GOAL_JUMPS:
+            # kommt nicht hin (zu weit oben, Text scrollt weg …): aufgeben statt endlos zu hüpfen
+            log.info("Ziel %s aufgegeben nach %d Sprüngen", self.goal[0], self.goal_jumps)
+            if self.goal[0] == "eat":
+                self.eat_t = random.uniform(*EAT_EVERY.get(self.pers, (40, 90)))
+            self.goal, pet.busy = None, False
             return
         pet.busy = True
         if self.goal[0] == "eat":
@@ -284,6 +295,7 @@ class Brain:
             return
         if abs(pet.y - ball.bottom) < 4 and abs(pet.x - ball.x) < pet.W * 0.55:
             ball.carried_by, pet.carrying = "pet", True
+            self.goal_jumps, self._goal_best = 0, None      # neue Etappe: zurückbringen
             pet._effect("!", life=0.5)
             return
         self._move_to(world, ball.x, ball.bottom)
@@ -300,13 +312,21 @@ class Brain:
 
     def _move_to(self, world, tx, ty):
         pet = self.pet
+        # nur Sprünge zählen, nach denen es dem Ziel nicht näher gekommen ist
+        dist = abs(pet.x - tx) + 3 * abs(pet.y - ty)
+        best = getattr(self, "_goal_best", None)
+        if best is not None and dist < best - pet.W * 0.5:
+            self.goal_jumps = 0
+        self._goal_best = dist if best is None else min(best, dist)
         if abs(pet.y - ty) < 3:
             if pet.state != "walk" or abs(pet.target_x - tx) > pet.W * 0.5:
                 pet.walk_to(tx, run=1.8)
-        elif abs(tx - pet.x) > 10 * pet.W or pet.y - ty > 6 * pet.line_h:
-            pet.leap_to(tx, ty)
         else:
-            pet._ballistic_to(tx, ty, apex=0.7 * pet.line_h)
+            self.goal_jumps = getattr(self, "goal_jumps", 0) + 1
+            if abs(tx - pet.x) > 10 * pet.W or pet.y - ty > 6 * pet.line_h:
+                pet.leap_to(tx, ty)
+            else:
+                pet._ballistic_to(tx, ty, apex=0.7 * pet.line_h)
 
     def _pursue(self, world):
         pet = self.pet
