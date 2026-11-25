@@ -7,9 +7,9 @@ from PyQt6.QtCore import QPoint, QRect, Qt, QTimer
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QApplication
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from . import creatures, daily, growth, profile, quiet, settings, vision, winapi
+from . import creatures, daily, growth, personas, profile, quiet, settings, vision, winapi
 from .adoption import AdoptionDialog
 from .ball import Ball
 from .brain import Brain
@@ -19,6 +19,8 @@ from .speech import Speech
 from .stats import StatsWatcher
 from .terminal import TerminalWatcher
 from .tray import Tray
+from . import diary as diary_mod
+from .book import BookWindow
 from .seasons import Weather
 from .windows import BallWindow, BiteFx, Bubble, DebugOverlay, PetWindow, SeasonOverlay, TabFx
 from .world import World
@@ -55,6 +57,13 @@ class Controller:
         self.ball = None
         self.ball_win = BallWindow(self)
         self.weather = Weather()
+        self.diary = diary_mod.Diary()
+        recent = (date.today() - timedelta(days=2)).isoformat()
+        for day, mins in prof.get("stats", {}).get("days", {}).items() if prof else ():
+            if day >= recent:
+                self.diary.set_minutes(day, mins)
+        self.diary_win = None
+        self._diary_busy = False
         self.season_win = SeasonOverlay(self.weather)
         self.work = daily.WorkTracker()
         self._day_t = self._work_t = 0.0
@@ -173,6 +182,8 @@ class Controller:
         log.info("Arbeit verbucht: %s", d)
         self.on_milestones(growth.apply_stats(self.prof, d))
         profile.save(self.prof)
+        for day in d.get("minutes", {}):
+            self.diary.set_minutes(day, self.prof["stats"]["days"].get(day, 0))
 
     def interact(self, kind):
         self.on_milestones(growth.interact(self.prof, kind))
@@ -196,6 +207,7 @@ class Controller:
         x, y = winapi.cursor_pos()
         self.ball = Ball(x, y - 30, random.uniform(-700, 700), random.uniform(-900, -400), self.pet.line_h)
         self.brain.ball = self.ball
+        self.diary.count("balls")
         self.ball_win.place(self.ball)
         self.ball_win.show()
         log.info("Ball geworfen")
@@ -226,6 +238,7 @@ class Controller:
                 or now - getattr(self, "_messenger_t", 0) < 30):
             return
         if self.pet.come_to_user():
+            self.diary.count("messenger")
             self._messenger_t = now
             self._messenger_text = tab[:40]
             log.info("Bote: %s ist fertig", tab)
@@ -265,6 +278,8 @@ class Controller:
         """Pet hat ein Wort angeknabbert: Biss anzeigen, zählen, kommentieren."""
         n = growth.count_eaten(self.prof, date.today().isoformat())
         profile.save(self.prof)
+        self.diary.count("eaten")
+        self.diary.add_word(word)
         if self.world.ok and platform.pane < len(self.world.snap.panes):
             pane = self.world.snap.panes[platform.pane]
             x = platform.x0 + start * pane.cell_w
@@ -289,6 +304,7 @@ class Controller:
             self._day_t = now
             self.pet.daypart = part = daily.daypart()
             today = date.today().isoformat()
+            self._tick_diary()
             if part == "morgen" and self.prof.get("last_greet") != today and daily.idle_seconds() < 60:
                 self.prof["last_greet"] = today
                 profile.save(self.prof)
@@ -324,6 +340,83 @@ class Controller:
             if back is not None and back >= 10 and random.random() < 0.7:
                 self.speech.canned("welcome", force=True)
 
+    # ================================================================ Tagebuch
+    def _tick_diary(self):
+        self.diary.save()
+        if self._diary_busy or self.quiet_reason:
+            return
+        day = self.diary.due_entry()
+        if day:
+            prev = [d for d in sorted(self.diary.data["entries"]) if d < day]
+            system, user = personas.diary_prompt(self.prof, diary_mod.day_label(day), self.diary.facts(day),
+                                                 self.diary.data["entries"][prev[-1]] if prev else None)
+            self._write_diary(day, system, user, self.diary.set_entry)
+            return
+        key = self.diary.due_week()
+        if key:
+            self.write_week(key)
+
+    def write_week(self, key):
+        if self._diary_busy:
+            return
+        entries = [(diary_mod.day_label(d), t) for d, t in self.diary.week_entries(key)]
+        totals = self.diary.summary(self.diary.week_totals(key))
+        system, user = personas.week_prompt(self.prof, diary_mod.week_label(key), entries, totals)
+        self._write_diary(key, system, user, self.diary.set_week, fail_key="w" + key)
+
+    def _write_diary(self, key, system, user, store, fail_key=None):
+        def done(out):
+            self._diary_busy = False
+            text = diary_mod.clean(out)
+            if not text:
+                return failed()
+            store(key, text)
+            log.info("Tagebuch %s: %s", key, " ".join(text.split())[:120])
+            if self.diary_win is not None and self.diary_win.isVisible():
+                self.diary_win.set_html(self.diary.html(self.prof["name"]))
+            self._update_week_button()
+
+        def failed():
+            self._diary_busy = False
+            self.diary.failed.add(fail_key or key)
+            self._update_week_button()
+
+        self._diary_busy = self.speech.write(system, user, done, on_fail=failed)
+
+    def open_diary(self):
+        self.diary.save()
+        html = self.diary.html(self.prof["name"])
+        if self.diary_win is None:
+            self.diary_win = BookWindow(f"Tagebuch von {self.prof['name']}",
+                                        "Jeden Abend ein Eintrag, freitags ein Wochenrückblick.", html,
+                                        button="Wochenrückblick jetzt schreiben", on_button=self._week_now)
+        else:
+            self.diary_win.set_html(html)
+        self._update_week_button()
+        self.diary_win.show_front()
+
+    def _week_now(self):
+        key = diary_mod.week_key(date.today())
+        if not self.diary.week_entries(key):                # noch kein Eintrag diese Woche: letzte Woche
+            key = diary_mod.week_key(date.today() - timedelta(days=7))
+        self.diary.failed.discard("w" + key)
+        self.write_week(key)
+        self._update_week_button()
+
+    def _update_week_button(self):
+        w = self.diary_win
+        if w is None or w.button is None:
+            return
+        if self._diary_busy:
+            w.button.setText("schreibt gerade …")
+            w.button.setEnabled(False)
+            return
+        key = diary_mod.week_key(date.today())
+        has = bool(self.diary.week_entries(key)) or bool(
+            self.diary.week_entries(diary_mod.week_key(date.today() - timedelta(days=7))))
+        w.button.setText("Wochenrückblick jetzt schreiben")
+        w.button.setEnabled(has and self.speech.exe is not None)
+
     def toggle_accessory(self, acc, on):
         off = self.prof.setdefault("accessories_off", [])
         if on and acc in off:
@@ -335,12 +428,14 @@ class Controller:
     # ================================================================ Maus (aus dem Pet-Fenster)
     def on_stroke(self):
         self.pet.stroke()
+        self.diary.count("strokes")
         self.speech.canned("stroke")
         self.interact("stroke")
 
     def on_poke(self):
         self.interact("poke_sleep" if self.pet.state == "sleep" else "poke")
         self.pet.poke()
+        self.diary.count("pokes")
         self.speech.canned("poke")
 
     def on_release(self, x, y, vx, vy):
@@ -441,6 +536,7 @@ class Controller:
         self.prof["last_seen"] = time.time()
         self.prof["energy"] = round(self.pet.energy, 1)
         profile.save(self.prof)
+        self.diary.save()
         self.stats.stop()
         self.vision.stop()
         self.vision.wait(1500)
@@ -523,6 +619,8 @@ class Controller:
         self._update_visibility(now)
         self.place()
         if pet.state != self._prev_state:
+            if pet.state == "sleep":
+                self.diary.count("naps")
             if pet.state == "cling" and getattr(self, "_messenger_text", None):
                 self.speech.canned("messenger", force=True, tab=self._messenger_text)
                 self._messenger_text = None

@@ -207,6 +207,39 @@ def lines_prompt(prof):
     return system, user
 
 
+def _who(prof):
+    return (f"Du bist {prof.get('name', 'ein Pet')}, ein winziges Pixel-Haustier, das im Terminal deines "
+            f"Menschen lebt, während er mit Claude Code programmiert. {CREATURE.get(prof.get('creature'), '')}\n"
+            f"Charakter: {CHARACTER.get(prof.get('personality'), '')}.\n" + _voice(prof, examples=False)
+            + (f"Persönlichkeit: {prof.get('persona')}\n" if prof.get("persona") else ""))
+
+
+def diary_prompt(prof, day_label, facts, previous=None):
+    """System- und Nutzer-Prompt für einen Tagebucheintrag."""
+    user = (
+        f"Schreib deinen Tagebucheintrag für {day_label}. Das ist heute passiert:\n{facts}\n\n"
+        + (f"Dein letzter Eintrag (nicht wiederholen, gern daran anknüpfen):\n{previous}\n\n" if previous else "")
+        + "Regeln: Ich-Form, Deutsch, 2 bis 4 Sätze, höchstens 60 Wörter, ganz in deiner Stimme. "
+        "Verwende nur die Fakten oben, erfinde nichts über deinen Menschen oder seine Arbeit dazu. "
+        "Nicht jede Zahl aufzählen – such dir das Spannendste aus. Kein Markdown, keine Überschrift, "
+        "kein Datum, nicht mit „Liebes Tagebuch“ anfangen."
+    )
+    return _who(prof), user
+
+
+def week_prompt(prof, week_label, entries, totals):
+    """System- und Nutzer-Prompt für den Wochenrückblick."""
+    days = "\n".join(f"- {d}: {t}" for d, t in entries)
+    user = (
+        f"Schreib deinen Wochenrückblick für die {week_label}.\n"
+        f"Deine Tagebucheinträge dieser Woche:\n{days}\n\nZahlen der Woche:\n{totals}\n\n"
+        "Regeln: Ich-Form, Deutsch, 3 bis 5 Sätze, höchstens 90 Wörter, in deiner Stimme. Nenn das Highlight "
+        "der Woche und schließ mit einem kleinen Wunsch für nächste Woche. Nur die Fakten oben verwenden. "
+        "Kein Markdown, keine Überschrift."
+    )
+    return _who(prof), user
+
+
 def persona_prompt(prof):
     base = CREATURE.get(prof.get("creature"), "")
     return (

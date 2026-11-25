@@ -412,6 +412,13 @@ class Speech(QObject):
                   on_out=lambda out: callback(out.strip()[:600]), count=False)
         return True
 
+    def write(self, system, user, callback, on_fail=None):
+        """Längerer Text (Tagebuch, Rückblick) – zählt nicht ins Sprech-Budget. False ohne claude-CLI."""
+        if not self.exe:
+            return False
+        self._run(user, system=system, on_out=callback, count=False, on_fail=on_fail)
+        return True
+
     # ------------------------------------------------------------ intern
     def _trim(self):
         now = time.time()
@@ -451,14 +458,14 @@ class Speech(QObject):
         if act != "nichts":
             self.acted.emit(act, target)
 
-    def _run(self, user, system, on_out, count):
+    def _run(self, user, system, on_out, count, on_fail=None):
         args = ["-p", "--model", "haiku", "--setting-sources", "", "--no-session-persistence",
                 "--strict-mcp-config", "--tools", "", "--disable-slash-commands",
                 "--system-prompt", system]
         proc = QProcess(self)
         proc.setProcessEnvironment(_clean_env())
         proc.setWorkingDirectory(BRAIN_DIR)
-        proc.finished.connect(lambda code, status, pr=proc: self._done(pr, code, on_out, count))
+        proc.finished.connect(lambda code, status, pr=proc: self._done(pr, code, on_out, count, on_fail))
         proc.errorOccurred.connect(lambda err: log.warning("claude-Aufruf: %s", err))
         if count:
             self.busy = True
@@ -478,7 +485,7 @@ class Speech(QObject):
         except RuntimeError:
             pass  # Prozessobjekt schon aufgeräumt
 
-    def _done(self, proc, code, on_out, count):
+    def _done(self, proc, code, on_out, count, on_fail=None):
         if count:
             self.busy = False
         out = bytes(proc.readAllStandardOutput()).decode("utf-8", "replace").strip()
@@ -486,6 +493,8 @@ class Speech(QObject):
         proc.deleteLater()
         if code != 0 or not out:
             log.warning("Haiku ohne Antwort (code %s): %s", code, err[:200])
+            if on_fail:
+                on_fail()
             return
         try:
             on_out(out)

@@ -46,6 +46,7 @@ class Reactions:
         self.seen = set()
         self.seen_order = deque()
         self.tab_states = {}
+        self.diary_t = {}               # Ereignisart -> wann zuletzt ins Tagebuch gezählt
         self.working_since = {}         # Tab -> seit wann Claude dort arbeitet
         self.last = {}
         self.primed = False
@@ -58,6 +59,15 @@ class Reactions:
         self.seen_order.append(line)
         while len(self.seen_order) > 800:
             self.seen.discard(self.seen_order.popleft())
+
+    def _count_for_diary(self, events):
+        """Commits, Pushes und Fehler fürs Tagebuch zählen (Befehl und Ausgabe zählen nur einmal)."""
+        now = time.time()
+        for kind, _ in events:
+            key = {"commit": "commits", "push": "pushes", "error": "errors"}.get(kind)
+            if key and now - self.diary_t.get(kind, 0) > 15:
+                self.diary_t[kind] = now
+                self.ctl.diary.count(key)
 
     def on_world(self, world):
         if not world.ok:
@@ -77,6 +87,7 @@ class Reactions:
             if t.state == "working" and prev != "working":
                 self.working_since[k] = time.time()
             if prev == "working" and t.state == "idle":
+                self.ctl.diary.count("done")
                 # Bote: lange Arbeit fertig, und du schaust gerade nicht hin
                 worked = time.time() - self.working_since.pop(k, time.time())
                 if worked >= 20 and (not t.selected or not self.ctl.terminal_focused()):
@@ -123,6 +134,7 @@ class Reactions:
                         events.append(("success", s))
         self.primed = True
 
+        self._count_for_diary(events)
         visible = pet.state != "hidden" and pet.pane is not None
         if not visible:
             return

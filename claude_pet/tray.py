@@ -37,6 +37,7 @@ class Tray:
         self._action(m, "Ball werfen", ctl.throw_ball)
         self.a_noball = self._action(m, "Ball wegräumen", ctl.remove_ball)
         self._action(m, "Pet zu mir holen", ctl.summon)
+        self._action(m, "Tagebuch …", ctl.open_diary)
         a_dbg = QAction("Entwickler-Ansicht", m, checkable=True)
         a_dbg.toggled.connect(ctl.toggle_debug)
         m.addAction(a_dbg)
