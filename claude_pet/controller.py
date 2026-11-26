@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QApplication
 
 from datetime import date, datetime, timedelta
 
-from . import creatures, daily, growth, personas, profile, quiet, settings, vision, winapi
+from . import creatures, daily, growth, osapi, personas, profile, quiet, settings, vision
 from .adoption import AdoptionDialog
 from .ball import Ball
 from .brain import Brain
@@ -17,6 +17,7 @@ from .pet import AIR, TRANSITION, Pet
 from .reactions import Reactions
 from .speech import Speech
 from .stats import StatsWatcher
+from .streams import StreamHub
 from .terminal import TerminalWatcher
 from .tray import Tray
 from . import diary as diary_mod
@@ -30,6 +31,9 @@ from .windows import (BallWindow, BiteFx, Bubble, DebugOverlay, DreamCloud, Hunt
 from .world import World
 
 log = logging.getLogger(__name__)
+
+MESSENGER_GAP = 30      # s Mindestabstand zwischen zwei Botengängen
+MESSENGER_KEEP = 180    # s so lange wartet eine Meldung höchstens
 
 MILESTONE_TEXT = {
     ("stage", "jung"): "Ich bin gewachsen! Schau, wie groß ich schon bin!",
@@ -103,7 +107,12 @@ class Controller:
         self._pending_action = None
         self._interval = 16
 
-        self.watcher = TerminalWatcher()
+        self._messenger_queue = {}                  # Session -> (Zeit, Programm): noch zu melden
+        self._messenger_t = 0.0
+        self._messenger_text = None
+        self.streams = StreamHub()                  # Text aus VS Code/Cursor (Begleit-Erweiterung)
+        self.streams.start()
+        self.watcher = TerminalWatcher(self.streams)
         self.watcher.snapshot.connect(self.on_snapshot)
         self.watcher.start()
         self.stats = StatsWatcher(self.prof.get("born"))
@@ -214,7 +223,7 @@ class Controller:
     # ================================================================ Spielen
     def throw_ball(self):
         """Ball ab Mauszeiger in die Welt werfen."""
-        x, y = winapi.cursor_pos()
+        x, y = osapi.cursor_pos()
         self.ball = Ball(x, y - 30, random.uniform(-700, 700), random.uniform(-900, -400), self.pet.line_h)
         self.brain.ball = self.ball
         self.diary.count("balls")
@@ -238,20 +247,39 @@ class Controller:
         self.ball.carried_by = "user"
 
     def terminal_focused(self):
-        """Ist das Windows Terminal gerade das aktive Fenster?"""
-        return bool(self.world.ok and winapi.user32.GetForegroundWindow() == self.world.snap.hwnd)
+        """Ist das Terminal-Fenster des Pets (Windows Terminal, VS Code, Cursor) gerade aktiv?"""
+        return bool(self.world.ok and osapi.foreground_window() == self.world.snap.hwnd)
 
-    def messenger(self, tab):
-        """Bote: eine Session ist fertig und du schaust woanders hin -> das Pet holt dich."""
-        now = time.time()
-        if (not self.settings.get("messenger", True) or self.quiet_reason
-                or now - getattr(self, "_messenger_t", 0) < 30):
+    def messenger(self, tab, host=None):
+        """Bote: eine Session ist fertig und du schaust woanders hin -> das Pet holt dich.
+        Geht das gerade nicht (Abstand zum letzten Botengang, Pet hängt noch an der Maus, Ruhemodus),
+        wird die Meldung nachgeholt – mehrere fertige Sessions in einem Gang."""
+        if not self.settings.get("messenger", True):
             return
-        if self.pet.come_to_user():
-            self.diary.count("messenger")
-            self._messenger_t = now
-            self._messenger_text = tab[:40]
-            log.info("Bote: %s ist fertig", tab)
+        self._messenger_queue[tab] = (time.time(), host)
+        if not self._deliver_messenger():
+            log.info("Bote zurückgestellt: %s", tab)
+
+    def _deliver_messenger(self):
+        q = self._messenger_queue
+        now = time.time()
+        for k in [k for k, (t, _) in q.items() if now - t > MESSENGER_KEEP]:
+            del q[k]
+        if self.world.ok and self.terminal_focused():
+            # du bist inzwischen in diesem Terminal-Programm: die Sessions dort siehst du selbst
+            for k in [k for k, (_, h) in q.items() if h == self.world.snap.host]:
+                del q[k]
+        if not q or self.quiet_reason or now - self._messenger_t < MESSENGER_GAP:
+            return False
+        if not self.pet.come_to_user():
+            return False
+        names = list(q)
+        q.clear()
+        self.diary.count("messenger")
+        self._messenger_t = now
+        self._messenger_text = "“ und „".join(n[:40] for n in names)
+        log.info("Bote: %s fertig", ", ".join(names))
+        return True
 
     def accessories(self):
         """Getragene Accessoires – im Winter zusätzlich die Mütze."""
@@ -276,7 +304,7 @@ class Controller:
     def _terminal_hidden(self):
         """Terminal von einem anderen Fenster verdeckt? (dann kein Wetter darüber malen)"""
         l, t, r, b = self.world.snap.panes[0].rect
-        top = winapi.top_window_at(int((l + r) / 2), int((t + b) / 2))
+        top = osapi.top_window_at(int((l + r) / 2), int((t + b) / 2))
         return top is not None and top != self.world.snap.hwnd
 
     def on_fetched(self):
@@ -581,7 +609,7 @@ class Controller:
             self.pet.perform(action)
 
     def summon(self):
-        x, y = winapi.cursor_pos()
+        x, y = osapi.cursor_pos()
         self.pet.placed = True
         self.pet.x, self.pet.y = x, y + self.pet.H * 0.75
         self.pet.drop(0, 0)
@@ -662,6 +690,7 @@ class Controller:
         self.vision.wait(1500)
         self.watcher.stop()
         self.watcher.wait(1500)
+        self.streams.stop()
         self.tray.hide()
         self.app.quit()
 
@@ -705,10 +734,14 @@ class Controller:
     # ================================================================ Spielschleife
     def tick(self):
         now = time.perf_counter()
-        dt = min(0.05, now - self._last)
+        gap = now - self._last
+        dt = min(0.05, gap)
         self._last = now
+        self._frames = getattr(self, "_frames", 0) + 1
+        self._worst_gap = max(getattr(self, "_worst_gap", 0.0), gap)
+        self._slow_frames = getattr(self, "_slow_frames", 0) + (gap > 0.05)
         pet = self.pet
-        cursor = winapi.cursor_pos()
+        cursor = osapi.cursor_pos()
         if now - self._quiet_check > 2.0:
             self._quiet_check = now
             self._update_quiet()
@@ -739,6 +772,9 @@ class Controller:
         self.brain.tick(dt, self.world, cursor)
         pet.step(dt, self.world, self.screen_floor, self.vbounds(), cursor)
         self._tick_ball(dt)
+        if self._messenger_queue and now - getattr(self, "_messenger_try", 0.0) > 1.0:
+            self._messenger_try = now
+            self._deliver_messenger()
         self._tick_weather(dt)
         self._tick_hunt(dt)
         self._play_tab_effects()
@@ -747,7 +783,7 @@ class Controller:
         if pet.state != self._prev_state:
             if pet.state == "sleep":
                 self.diary.count("naps")
-            if pet.state == "cling" and getattr(self, "_messenger_text", None):
+            if pet.state == "cling" and self._messenger_text:
                 self.speech.canned("messenger", force=True, tab=self._messenger_text)
                 self._messenger_text = None
                 self.brain.cling_t = 7.0
@@ -772,10 +808,13 @@ class Controller:
         if now - self._log_t > 2:
             self._log_t = now
             sp = pet.support
-            log.debug("pet state=%s pos=(%.0f,%.0f) visible=%s world=%s support=%s goal=%s home=%s",
+            log.debug("pet state=%s pos=(%.0f,%.0f) visible=%s world=%s support=%s goal=%s home=%s "
+                      "energy=%.0f | %d Frames, %d über 50 ms, längster %.0f ms | Terminal-Abfrage %s",
                       pet.state, pet.x, pet.y, self.win.isVisible(), self.world.ok,
                       sp and (sp.pane, sp.row, sp.text[:20]), self.brain.goal and self.brain.goal[0],
-                      self.brain.home and self.brain.home[0][:25])
+                      self.brain.home and self.brain.home[0][:25], pet.energy,
+                      self._frames, self._slow_frames, self._worst_gap * 1000, self.watcher.timing())
+            self._frames, self._slow_frames, self._worst_gap = 0, 0, 0.0
 
     def _update_surroundings(self, now):
         """Fensterkanten, Bildanalyse, Ausflüge und Abfragerate des Terminals."""
@@ -784,7 +823,8 @@ class Controller:
         if now - self._win_check > (0.4 if outside else 1.0):
             self._win_check = now
             old = dict(self.world.win_rects)
-            self.world.set_windows(winapi.window_rects(), pet.H + 6, self.screen_top_at)
+            term = self.world.snap.hwnd if self.world.ok else None
+            self.world.set_windows(osapi.window_rects(term), pet.H + 6, self.screen_top_at)
             pet.on_windows(self.world, old)
         if outside and now - self._vision_check > 0.33 and not self.vision.busy("near"):
             self._vision_check = now
@@ -924,7 +964,7 @@ class Controller:
             # im Terminal: nur zeigen, wenn das Terminal an dieser Stelle nicht verdeckt ist
             if now - self._vis_check > 0.25:
                 self._vis_check = now
-                top = winapi.top_window_at(int(pet.x), int(pet.y - pet.H / 2))
+                top = osapi.top_window_at(int(pet.x), int(pet.y - pet.H / 2))
                 self._visible_ok = top == self.world.snap.hwnd
             show = self._visible_ok
         if show != self.win.isVisible():
@@ -933,6 +973,11 @@ class Controller:
 
 def run():
     app = QApplication([])
+    osapi.hide_dock_icon()                       # Mac: kein Dock-Symbol, das Pet lebt in der Menüleiste
+    if not osapi.accessibility_trusted():
+        # Mac: ohne „Bedienungshilfen“ findet das Pet das Terminal in VS Code/Cursor nicht
+        log.warning("Freigabe „Bedienungshilfen“ fehlt – Systemdialog wird geöffnet")
+        osapi.accessibility_trusted(prompt=True)
     prof = profile.load()
     if prof is not None:
         app.setQuitOnLastWindowClosed(False)

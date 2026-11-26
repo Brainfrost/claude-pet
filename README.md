@@ -1,10 +1,17 @@
 # claude-pet
 
-Ein Desktop-Pet, das auf dem Text deiner Claude-Code-Sessions im Windows Terminal lebt:
+Ein Desktop-Pet, das auf dem Text deiner Claude-Code-Sessions im Windows Terminal oder im Terminal von
+VS Code/Cursor lebt:
 jede sichtbare Textzeile ist eine Plattform, auf der es läuft, sitzt, schläft und herumspringt.
 
-**Für Kollegen:** siehe [ANLEITUNG.md](ANLEITUNG.md) – `install.cmd` doppelklicken, fertig.
-(`update.cmd` aktualisiert, `uninstall.cmd` entfernt Autostart und auf Wunsch die Daten.)
+**Installieren:** siehe [ANLEITUNG.md](ANLEITUNG.md) – `git clone https://github.com/Brainfrost/claude-pet.git`,
+dann `install.cmd` (Windows) bzw. `install.command` (Mac) doppelklicken, fertig.
+(`update` aktualisiert, `uninstall` entfernt Autostart, Erweiterung und auf Wunsch die Daten;
+Mac zusätzlich `start.command` und `diagnose.command`.)
+
+> Inoffizielles Hobbyprojekt, nicht mit Anthropic verbunden. „Claude“ und „Claude Code“ sind Marken
+> von Anthropic. Das Pet nutzt dein eigenes Claude-Code-Abo (`claude -p`) und schickt nur maskierte
+> Ausschnitte an Haiku. Lizenz: [MIT](LICENSE).
 
 ## Starten
 
@@ -22,7 +29,10 @@ python -m venv .venv
 
 | Modul | Aufgabe |
 |---|---|
-| `terminal.py` | liest Windows Terminal per UI Automation (8×/s): Tabs (✳ = untätig, Spinner = arbeitet) und sichtbaren Text mit Pixel-Positionen |
+| `terminal.py` | liest Windows Terminal per UI Automation (8×/s): Tabs (✳ = untätig, Spinner = arbeitet) und sichtbaren Text mit Pixel-Positionen; wählt die Quelle (zuletzt aktives Terminal-Programm) |
+| `vscode.py` | VS Code/Cursor: Terminal-Flächen und Titel per UIA (`xterm-screen`, `xterm-helper-textarea`), Text aus `streams.py`, Ausrichtung am Cursor |
+| `streams.py` / `emulator.py` | lokaler Kanal (Named Pipe/Unix-Socket) für die Begleit-Erweiterung, pyte-Emulator je Terminal |
+| `vsix.py` + `vscode-extension/` | Begleit-Erweiterung: liest `claude`-Ausgabe per Shell-Integration; bauen/installieren ohne Node |
 | `world.py` | Plattformen: Textstücke, Pane-Boden, Fensterkanten, Bildanalyse-Kanten; erkennt Scrollen |
 | `vision.py` | Bildanalyse: waagrechte Kanten in beliebigen Fenstern (GDI-Aufnahme, eigener Hintergrund-Thread) |
 | `pet.py` | Physik und Bewegung (laufen, springen, klettern, Tricks) |
@@ -40,15 +50,46 @@ python -m venv .venv
 | `daily.py` | Tageszeit, Tagesmomente, Pausen-Messung |
 | `tray.py` | Tray-Menü |
 | `controller.py` | verbindet alles, Spielschleife |
-| `settings.py` / `quiet.py` / `profile.py` | Einstellungen + Autostart, Ruhemodus, Steckbrief |
+| `settings.py` / `quiet.py` / `profile.py` | Einstellungen + Autostart (Registry bzw. LaunchAgent), Ruhemodus, Steckbrief |
+| `osapi.py` → `winapi.py` / `macapi.py` | Betriebssystem-Schicht: Fensterliste, Vordergrund, Maus, Overlays, Leerlauf, Einzelinstanz |
+| `macax.py` | Mac: Terminals in VS Code/Cursor über die Bedienungshilfen (AX) finden |
+| `gdi.py` | Windows: Bildschirmaufnahme für `vision.py` (Mac: keine – bräuchte „Bildschirmaufnahme“) |
+| `paths.py` / `diagnose.py` | Datenordner je System; Diagnose „was sieht das Pet?“ (`python -m claude_pet.diagnose`) |
 
 Keine Hooks, keine Änderungen an Claude-Code-Einstellungen.
+
+### VS Code / Cursor
+
+xterm.js zeichnet auf ein Canvas, UIA sieht dort keinen Text. Deshalb:
+- **Geometrie/Zustand per UIA:** `xterm-screen` = Textfläche, `xterm-helper-textarea` = Eingabefeld am
+  Cursor; sein Name enthält den Terminal-Titel (✳/Spinner).
+- **Text über die Begleit-Erweiterung** (`vscode-extension/`): `onDidStartTerminalShellExecution` +
+  `execution.read()` für `claude`-Aufrufe, per Named Pipe `\\.\pipe\claude-pet-<user>` an `streams.py`;
+  dort spielt ein pyte-Emulator je Terminal den Strom nach (Zellgröße = Fläche / Größe beim Start).
+- **Ausrichtung:** Der Strom beginnt mitten auf dem Bildschirm; der Emulator wird an der Cursorzeile
+  (Eingabefeld) ausgerichtet. Größenänderungen meldet die API nicht – die Größe kommt aus dem UIA-Rechteck.
+- **Grenzen:** `claude`-Aufrufe vor dem Start der Erweiterung sind unsichtbar (die letzten 256 KB je
+  Terminal werden aber nachgeliefert, wenn das Pet später startet); Hochscrollen wird nicht erkannt.
+- Erweiterung bauen/installieren: `.venv\Scripts\python -m claude_pet.vsix` (`--remove` entfernt sie).
+
+### macOS
+
+- Nur VS Code/Cursor (kein Windows Terminal; Terminal.app/iTerm2 noch nicht). Text wie oben über die
+  Erweiterung (Unix-Socket `$TMPDIR/claude-pet-<user>`).
+- Geometrie über die **Bedienungshilfen** (`macax.py`): Electron per `AXManualAccessibility` einschalten,
+  Eingabefelder per `AXUIElementsForSearchPredicate` (Notweg: Baumsuche), Fläche über `AXDOMClassList`.
+  Fensterliste per `CGWindowListCopyWindowInfo` (keine Freigabe nötig).
+- **Keine Bildschirmaufnahme** (monatliche Nachfrage von macOS): keine Bildanalyse-Ebenen.
+- Gestartet wird immer über launchd (`com.claude-pet`), damit die Freigabe an Python hängt und nicht
+  am Terminal, aus dem installiert wurde. Kein Dock-Symbol (Accessory), Menüleisten-Symbol.
+- `tests/test_mac.py` prüft den Mac-Zweig mit nachgebautem macOS (läuft auch unter Windows).
+- Nicht auf echter Hardware getestet: `diagnose.command` liefert die Infos dafür.
 
 ## Entwickeln
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 83 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 104 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 

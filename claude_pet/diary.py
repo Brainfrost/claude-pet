@@ -1,7 +1,7 @@
 """Tagebuch: Das Pet zählt mit, was am Tag passiert. Abends (oder für vergessene Tage am nächsten Morgen)
 schreibt Haiku daraus einen kurzen Eintrag in der Stimme des Pets, am Wochenende einen Wochenrückblick.
 
-Gespeichert wird in %LOCALAPPDATA%\\claude-pet\\tagebuch.json, getrennt vom Steckbrief.
+Gespeichert wird im Datenordner (paths.data_dir) als tagebuch.json, getrennt vom Steckbrief.
 """
 import json
 import logging

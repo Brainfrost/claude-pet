@@ -146,8 +146,9 @@ _SKIP_CLASSES = {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"
                  "Windows.UI.Core.CoreWindow", "NotifyIconOverflowWindow"}
 
 
-def window_rects():
-    """Sichtbare 'echte' Top-Level-Fenster als [(hwnd, (l, t, r, b), ist_terminal)], oberstes zuerst."""
+def window_rects(term_hwnd=None):
+    """Sichtbare 'echte' Top-Level-Fenster als [(hwnd, (l, t, r, b), ist_terminal)], oberstes zuerst.
+    ist_terminal: das Fenster, in dem das Pet lebt (Standard: jedes Windows Terminal)."""
     out = []
     for h in enum_windows():
         if not is_shown(h) or window_pid(h) == OWN_PID or _is_overlay_like(h):
@@ -158,7 +159,7 @@ def window_rects():
         l, t, r, b = window_rect(h)
         if r - l < 160 or b - t < 80:
             continue
-        out.append((h, (l, t, r, b), cls == WT_CLASS))
+        out.append((h, (l, t, r, b), h == term_hwnd if term_hwnd else cls == WT_CLASS))
     return out
 
 
@@ -173,3 +174,38 @@ def top_window_at(x, y):
         if l <= x < r and t <= y < b:
             return h
     return None
+
+
+def foreground_window():
+    return user32.GetForegroundWindow() or 0
+
+
+def prepare_overlay(hwnd, click_through=False):
+    """Fenster des Pets: nicht aktivierbar, kein Taskleisten-Eintrag, nicht in Bildschirmaufnahmen;
+    mit click_through gehen Klicks hindurch."""
+    flags = WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW
+    if click_through:
+        flags |= WS_EX_TRANSPARENT | WS_EX_LAYERED
+    add_exstyle(hwnd, flags)
+    exclude_from_capture(hwnd)
+
+
+class _LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [("cbSize", wt.UINT), ("dwTime", wt.DWORD)]
+
+
+def idle_seconds():
+    """Sekunden seit der letzten Maus-/Tastatureingabe (systemweit)."""
+    info = _LASTINPUTINFO(ctypes.sizeof(_LASTINPUTINFO), 0)
+    if not user32.GetLastInputInfo(ctypes.byref(info)):
+        return 0.0
+    return max(0.0, (kernel32.GetTickCount() - info.dwTime) / 1000.0)
+
+
+def hide_dock_icon():
+    """Nur auf dem Mac nötig."""
+
+
+def accessibility_trusted(prompt=False):
+    """Nur auf dem Mac nötig (Freigabe „Bedienungshilfen“)."""
+    return True

@@ -9,6 +9,12 @@ Get-CimInstance Win32_Process -Filter "Name like 'python%.exe'" |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 Write-Host "  ✓ Pet beendet" -ForegroundColor Green
 
+$venvPy = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+if ((Test-Path $venvPy) -and ((Get-Command code -ErrorAction SilentlyContinue) -or (Get-Command cursor -ErrorAction SilentlyContinue))) {
+    & $venvPy -m claude_pet.vsix --remove | Out-Null
+    Write-Host "  ✓ Erweiterung aus VS Code/Cursor entfernt" -ForegroundColor Green
+}
+
 $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 if (Get-ItemProperty -Path $run -Name 'claude-pet' -ErrorAction SilentlyContinue) {
     Remove-ItemProperty -Path $run -Name 'claude-pet'

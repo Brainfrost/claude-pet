@@ -3,13 +3,16 @@ import logging.handlers
 import os
 import sys
 
-os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "0")
+if sys.platform == "win32":
+    # Windows: physische Pixel überall (UIA, Win32, Qt). Auf dem Mac rechnet alles in Punkten.
+    os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "0")
 
-from . import winapi  # noqa: E402
+from . import osapi  # noqa: E402
+from .paths import data_dir  # noqa: E402
 
-winapi.set_dpi_awareness()
+osapi.set_dpi_awareness()
 
-LOG_DIR = os.path.join(os.environ.get("LOCALAPPDATA", "."), "claude-pet")
+LOG_DIR = data_dir()
 
 
 def setup_logging():
@@ -27,7 +30,7 @@ def setup_logging():
 
 def main():
     setup_logging()
-    if not winapi.single_instance():
+    if not osapi.single_instance():
         logging.info("läuft schon – beende")
         return 0
     from .controller import run

@@ -1,0 +1,13 @@
+{
+  "name": "claude-pet-terminal",
+  "displayName": "claude-pet: Terminal",
+  "description": "Gibt dem claude-pet die Terminal-Ausgabe von Claude Code weiter (nur lokal, über eine Named Pipe / einen Unix-Socket).",
+  "version": "0.2.0",
+  "publisher": "claude-pet",
+  "license": "MIT",
+  "engines": { "vscode": "^1.93.0" },
+  "main": "./extension.js",
+  "activationEvents": ["*"],
+  "extensionKind": ["ui"],
+  "contributes": {}
+}

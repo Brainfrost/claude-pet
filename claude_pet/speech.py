@@ -16,10 +16,11 @@ from collections import deque
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
 from . import personas
+from .paths import data_dir
 
 log = logging.getLogger(__name__)
 
-BRAIN_DIR = os.path.join(os.environ.get("LOCALAPPDATA", "."), "claude-pet", "brain")
+BRAIN_DIR = data_dir("brain")
 
 # max. Haiku-Aufrufe pro Stunde, Mindestabstand (s), Chance je Anlass, Plauder-Intervall (s) oder None
 RATES = {

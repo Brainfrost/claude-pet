@@ -1,10 +1,16 @@
-"""Einstellungen (gelten fürs Gerät, nicht fürs einzelne Pet) und Autostart über HKCU\\...\\Run."""
+"""Einstellungen (gelten fürs Gerät, nicht fürs einzelne Pet) und Autostart:
+Windows über HKCU\\...\\Run, Mac über einen LaunchAgent (~/Library/LaunchAgents/com.claude-pet.plist)."""
 import json
 import os
+import plistlib
 import sys
-import winreg
 
-DIR = os.path.join(os.environ.get("LOCALAPPDATA", "."), "claude-pet")
+from .paths import data_dir
+
+if sys.platform == "win32":
+    import winreg
+
+DIR = data_dir()
 PATH = os.path.join(DIR, "settings.json")
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -51,7 +57,49 @@ def autostart_command():
     return f'"{pyw}" "{os.path.join(PROJECT, "run.pyw")}"'
 
 
+# ------------------------------------------------------------------ Mac: LaunchAgent
+AGENT_LABEL = "com.claude-pet"
+AGENT_PATH = os.path.expanduser(f"~/Library/LaunchAgents/{AGENT_LABEL}.plist")
+_EXTRA_PATH = ("/opt/homebrew/bin", "/usr/local/bin", os.path.expanduser("~/.local/bin"),
+               os.path.expanduser("~/.npm-global/bin"), "/usr/bin", "/bin", "/usr/sbin", "/sbin")
+
+
+def launch_agent(run_at_load=True):
+    """Inhalt des LaunchAgents. Gestartet wird das Pet immer über launchd (auch vom Installer), damit
+    macOS die Freigabe „Bedienungshilfen“ stets demselben Programm (Python) zuordnet."""
+    path = [p for p in os.environ.get("PATH", "").split(":") if p]
+    path += [p for p in _EXTRA_PATH if p not in path]          # für `claude` (Haiku-Sprüche)
+    return {
+        "Label": AGENT_LABEL,
+        "ProgramArguments": [sys.executable, os.path.join(PROJECT, "run.pyw")],
+        "WorkingDirectory": PROJECT,
+        "RunAtLoad": bool(run_at_load),
+        "ProcessType": "Interactive",
+        "EnvironmentVariables": {"PATH": ":".join(path)},
+        "StandardErrorPath": data_dir("launchd.log"),
+    }
+
+
+def _write_agent(run_at_load):
+    os.makedirs(os.path.dirname(AGENT_PATH), exist_ok=True)
+    os.makedirs(data_dir(), exist_ok=True)
+    with open(AGENT_PATH, "wb") as f:
+        plistlib.dump(launch_agent(run_at_load), f)
+
+
+def _read_agent():
+    try:
+        with open(AGENT_PATH, "rb") as f:
+            return plistlib.load(f)
+    except (OSError, plistlib.InvalidFileException):
+        return None
+
+
+# ------------------------------------------------------------------ gemeinsam
 def set_autostart(on):
+    if sys.platform == "darwin":
+        _write_agent(on)            # die Datei bleibt (fürs Starten über launchd), nur RunAtLoad wechselt
+        return
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
         if on:
             winreg.SetValueEx(k, RUN_NAME, 0, winreg.REG_SZ, autostart_command())
@@ -63,8 +111,19 @@ def set_autostart(on):
 
 
 def autostart_enabled():
+    if sys.platform == "darwin":
+        a = _read_agent()
+        return bool(a and a.get("RunAtLoad")
+                    and a.get("ProgramArguments") == launch_agent()["ProgramArguments"])
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
             return winreg.QueryValueEx(k, RUN_NAME)[0] == autostart_command()
     except OSError:
         return False
+
+
+if __name__ == "__main__":
+    # Installer (Mac): `python -m claude_pet.settings --agent` schreibt den LaunchAgent
+    if "--agent" in sys.argv:
+        set_autostart(load().get("autostart", True))
+        print(AGENT_PATH)

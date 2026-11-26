@@ -48,12 +48,12 @@ $build = [Environment]::OSVersion.Version.Build
 if ($build -lt 19041) { Write-Warn "Windows-Build $build ist alt – getestet ist Windows 11." } else { Write-Ok "Windows-Build $build" }
 
 # ------------------------------------------------------------------ 2. Windows Terminal
-Write-Step "Windows Terminal"
+Write-Step "Windows Terminal (oder VS Code / Cursor)"
 $wt = (Get-Command wt.exe -ErrorAction SilentlyContinue) -or (Get-AppxPackage -Name 'Microsoft.WindowsTerminal*' -ErrorAction SilentlyContinue)
 if ($wt) {
     Write-Ok "gefunden"
 } else {
-    Write-Warn "nicht gefunden. Das Pet lebt auf dem Text von Claude Code im Windows Terminal."
+    Write-Warn "nicht gefunden. Das Pet lebt auf dem Text von Claude Code im Windows Terminal oder in VS Code/Cursor."
     Write-Warn "Installieren: winget install Microsoft.WindowsTerminal  (oder über den Microsoft Store)"
 }
 
@@ -99,9 +99,23 @@ if (-not (Test-Path $venvPy)) {
 }
 & $venvPy -m pip install --disable-pip-version-check -q -r requirements.txt
 if ($LASTEXITCODE -ne 0) { Write-Fail "Pakete konnten nicht installiert werden (Internet/Proxy?)"; exit 1 }
-& $venvPy -c "import PyQt6.QtWidgets, comtypes, numpy"
+& $venvPy -c "import PyQt6.QtWidgets, comtypes, numpy, pyte"
 if ($LASTEXITCODE -ne 0) { Write-Fail "Pakete installiert, lassen sich aber nicht laden"; exit 1 }
-Write-Ok "PyQt6, comtypes, numpy bereit"
+Write-Ok "PyQt6, comtypes, numpy, pyte bereit"
+
+# ------------------------------------------------------------------ 5b. VS Code / Cursor
+Write-Step "Erweiterung für VS Code / Cursor"
+if ((Get-Command code -ErrorAction SilentlyContinue) -or (Get-Command cursor -ErrorAction SilentlyContinue)) {
+    & $venvPy -m claude_pet.vsix | ForEach-Object { Write-Host "  $_" }
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "installiert – das Pet lebt jetzt auch im Terminal von VS Code/Cursor"
+        Write-Warn "Läuft claude dort schon, einmal neu starten (/exit, dann claude)."
+    } else {
+        Write-Warn "Erweiterung nicht (überall) installiert – das Pet läuft trotzdem im Windows Terminal."
+    }
+} else {
+    Write-Ok "kein VS Code/Cursor gefunden – übersprungen"
+}
 
 # ------------------------------------------------------------------ 6. Starten
 Write-Step "Pet starten"

@@ -8,8 +8,9 @@ import random
 from datetime import datetime
 
 from . import creatures
+from .paths import data_dir
 
-DIR = os.path.join(os.environ.get("LOCALAPPDATA", "."), "claude-pet")
+DIR = data_dir()
 PATH = os.path.join(DIR, "profile.json")
 ARCHIVE = os.path.join(DIR, "archiv")
 

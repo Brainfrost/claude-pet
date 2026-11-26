@@ -11,11 +11,12 @@ import time
 from datetime import datetime, timedelta
 
 from PyQt6.QtCore import QThread, pyqtSignal
+from .paths import data_dir
 
 log = logging.getLogger(__name__)
 
 PROJECTS = os.path.join(os.path.expanduser("~"), ".claude", "projects")
-STATE = os.path.join(os.environ.get("LOCALAPPDATA", "."), "claude-pet", "stats_state.json")
+STATE = data_dir("stats_state.json")
 SCAN_EVERY = 45  # Sekunden
 
 CATEGORY = {

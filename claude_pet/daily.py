@@ -1,6 +1,4 @@
 """Tagesablauf: Tageszeit und wie lange du schon am Stück arbeitest (für die Pausen-Erinnerung)."""
-import ctypes
-import ctypes.wintypes as wt
 import time
 from datetime import datetime
 
@@ -36,16 +34,10 @@ def daypart(now=None):
     return "nacht"
 
 
-class _LASTINPUTINFO(ctypes.Structure):
-    _fields_ = [("cbSize", wt.UINT), ("dwTime", wt.DWORD)]
-
-
 def idle_seconds():
     """Sekunden seit der letzten Maus-/Tastatureingabe (systemweit)."""
-    info = _LASTINPUTINFO(ctypes.sizeof(_LASTINPUTINFO), 0)
-    if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):
-        return 0.0
-    return max(0.0, (ctypes.windll.kernel32.GetTickCount() - info.dwTime) / 1000.0)
+    from . import osapi
+    return osapi.idle_seconds()
 
 
 class WorkTracker:

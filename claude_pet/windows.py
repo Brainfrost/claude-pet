@@ -10,14 +10,12 @@ from PyQt6.QtGui import (QColor, QFont, QFontMetrics, QGuiApplication, QPainter,
                          QTransform)
 from PyQt6.QtWidgets import QWidget
 
-from . import creatures, effects, winapi
+from . import creatures, effects, osapi
 from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_VISION, ROW_WINDOW
 
 _OVERLAY_FLAGS = (Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
                   | Qt.WindowType.Tool | Qt.WindowType.WindowTransparentForInput
                   | Qt.WindowType.WindowDoesNotAcceptFocus)
-_CLICK_THROUGH = (winapi.WS_EX_TRANSPARENT | winapi.WS_EX_LAYERED | winapi.WS_EX_NOACTIVATE
-                  | winapi.WS_EX_TOOLWINDOW)
 
 
 class _Overlay(QWidget):
@@ -31,8 +29,7 @@ class _Overlay(QWidget):
 
     def showEvent(self, e):
         super().showEvent(e)
-        winapi.add_exstyle(int(self.winId()), _CLICK_THROUGH)
-        winapi.exclude_from_capture(int(self.winId()))
+        osapi.prepare_overlay(int(self.winId()), click_through=True)
 
 
 # ===================================================================== Pet
@@ -52,8 +49,7 @@ class PetWindow(QWidget):
 
     def showEvent(self, e):
         super().showEvent(e)
-        winapi.add_exstyle(int(self.winId()), winapi.WS_EX_NOACTIVATE | winapi.WS_EX_TOOLWINDOW)
-        winapi.exclude_from_capture(int(self.winId()))
+        osapi.prepare_overlay(int(self.winId()))
 
     def geometry_for(self, pet):
         w, h, fx, fy = self.ctl.renderer.size(pet.creature, pet.px)
@@ -251,8 +247,7 @@ class BallWindow(QWidget):
 
     def showEvent(self, e):
         super().showEvent(e)
-        winapi.add_exstyle(int(self.winId()), winapi.WS_EX_NOACTIVATE | winapi.WS_EX_TOOLWINDOW)
-        winapi.exclude_from_capture(int(self.winId()))
+        osapi.prepare_overlay(int(self.winId()))
 
     def place(self, ball):
         d = ball.r * 2 + 4
@@ -462,8 +457,7 @@ class HuntOverlay(QWidget):
 
     def showEvent(self, e):
         super().showEvent(e)
-        winapi.add_exstyle(int(self.winId()), winapi.WS_EX_NOACTIVATE | winapi.WS_EX_TOOLWINDOW)
-        winapi.exclude_from_capture(int(self.winId()))
+        osapi.prepare_overlay(int(self.winId()))
 
     def sync(self, rect):
         l, t, r, b = rect

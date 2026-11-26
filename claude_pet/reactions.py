@@ -47,7 +47,8 @@ class Reactions:
         self.seen_order = deque()
         self.tab_states = {}
         self.diary_t = {}               # Ereignisart -> wann zuletzt ins Tagebuch gezählt
-        self.working_since = {}         # Tab -> seit wann Claude dort arbeitet
+        self.working_since = {}         # (Programm, Tab) -> seit wann Claude dort arbeitet
+        self.q_states = {}              # (Programm, Tab) -> letzter Zustand
         self.last = {}
         self.primed = False
         self.buffer = deque(maxlen=BUFFER_LINES)   # neu erschienener Inhalt seit dem letzten Kommentar
@@ -76,28 +77,37 @@ class Reactions:
         snap = world.snap
         events = []
 
-        # --- Session-Zustand aus den Tab-Titeln
+        # --- Session-Zustand aus den Tab-Titeln – auch der Sessions in anderen Terminal-Programmen
+        # (snap.others), damit der Bote Bescheid sagt, wenn z. B. VS Code fertig wird, während das Pet
+        # im Windows Terminal wohnt. Schlüssel mit Programm, damit Sessions beim Umzug dieselben bleiben.
         home_key = brain.home[0] if brain.home else None
-        states = {}
-        for t in snap.tabs:
+        states, qstates = {}, {}
+        seen = [(t, snap.host, True) for t in snap.tabs] + [(t, t.host, False) for t in snap.others]
+        for t, host, shown in seen:
             k = tab_key(t)
+            q = (host, k)
+            qstates[q] = t.state
+            prevq = self.q_states.get(q)
+            if t.state == "working" and prevq != "working":
+                self.working_since[q] = time.time()
+            if prevq == "working" and t.state == "idle":
+                self.ctl.diary.count("done")
+                # Bote: lange Arbeit fertig, und du schaust gerade nicht hin
+                worked = time.time() - self.working_since.pop(q, time.time())
+                if worked >= 20 and (not shown or not t.selected or not self.ctl.terminal_focused()):
+                    self.ctl.messenger(k, host)
+            if not shown:
+                continue
             states[k] = t.state
             prev = self.tab_states.get(k)
             relevant = k == home_key or t.selected
-            if t.state == "working" and prev != "working":
-                self.working_since[k] = time.time()
-            if prev == "working" and t.state == "idle":
-                self.ctl.diary.count("done")
-                # Bote: lange Arbeit fertig, und du schaust gerade nicht hin
-                worked = time.time() - self.working_since.pop(k, time.time())
-                if worked >= 20 and (not t.selected or not self.ctl.terminal_focused()):
-                    self.ctl.messenger(k)
             if prev and prev != t.state and relevant:
                 if prev == "working" and t.state == "idle":
                     events.append(("done", ""))
                 elif prev == "idle" and t.state == "working":
                     events.append(("start", ""))
         self.tab_states = states
+        self.q_states = qstates
 
         # --- neuer Text im Pane, in dem das Pet ist
         pi = pet.pane if pet.pane is not None else 0
