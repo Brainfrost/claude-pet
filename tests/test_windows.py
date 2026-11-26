@@ -17,7 +17,7 @@ class Ctl:
 
 def test_all_effect_kinds_draw(qapp):
     pet = Pet(creatures.get("spatz"), "jung", "verspielt")
-    for kind in ("heart", "z", "♪", "gähn", "krümel", "konfetti", "!", "*", "…", "?"):
+    for kind in ("heart", "z", "♪", "gähn", "krümel", "konfetti", "!", "*", "…", "?", "staub", "hatschi", "schale", "funkeln"):
         pet._effect(kind, life=1.0, dx=0.5)
     for e in pet.effects:
         e["age"] = 0.4

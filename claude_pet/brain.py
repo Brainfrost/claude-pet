@@ -58,6 +58,7 @@ class Brain:
         self.cursor = (0, 0)
         self.goal_t = 0.0
         self._ball_check = 0.0
+        self._stalk = None             # Anpirschen an den Ball: None | schleichen | wackeln | fertig
         self.eat_t = random.uniform(*EAT_EVERY.get(personality, (40, 90))) * 0.5
         self.food_urge = False         # neues Futter im Text gesehen -> bald essen gehen
         self.mind = None               # mind.Mind: von Haiku geplante Schritte (vom Controller gesetzt)
@@ -208,8 +209,8 @@ class Brain:
         self.cursor = cursor
         self._track_cursor(dt, cursor)
         pet = self.pet
-        if pet.state in ("talk", "fly"):
-            return                                    # erst ausreden / erst ankommen
+        if pet.state in ("talk", "fly") or pet.hatch is not None:
+            return                                    # erst ausreden / erst ankommen / erst schlüpfen
         if pet.state == "cling":
             self.cling_t -= dt
             if self.cling_t <= 0:
@@ -244,6 +245,7 @@ class Brain:
 
     def set_goal(self, goal):
         self.goal, self.goal_t, self.goal_jumps, self._goal_best = goal, 0.0, 0, None
+        self._stalk = None
 
     # ------------------------------------------------------------ Nickerchen
     def _nap_tick(self, dt, world):
@@ -509,13 +511,48 @@ class Brain:
             return
         if not ball.resting:
             pet.facing = 1 if ball.x > pet.x else -1
+            pet.excite_t = 0.4                              # Funkelaugen, Schwanz wedelt
+            self._stalk = None
             return
         if abs(pet.y - ball.bottom) < 4 and abs(pet.x - ball.x) < pet.W * 0.55:
             ball.carried_by, pet.carrying = "pet", True
             self.goal_jumps, self._goal_best = 0, None      # neue Etappe: zurückbringen
             pet._effect("!", life=0.5)
             return
+        if self._stalk_ball(ball):
+            return
         self._move_to(world, ball.x, ball.bottom)
+
+    def _stalk_ball(self, ball):
+        """Liegt der Ball auf derselben Zeile: geduckt anschleichen, mit dem Hintern wackeln, draufspringen.
+        True = das Anpirschen hat gerade die Kontrolle. Faule laufen einfach hin."""
+        pet = self.pet
+        if self.pers == "faul" or self._stalk == "fertig" or abs(pet.y - ball.bottom) >= 4 or not pet.grounded:
+            return False
+        dx = ball.x - pet.x
+        d = 1 if dx > 0 else -1
+        if self._stalk is None:
+            if not 2.2 * pet.W < abs(dx) < 9 * pet.W:
+                return False
+            self._stalk = "schleichen"
+            # langsam, aber in rund zwei Sekunden dort (Beine in Zeitlupe)
+            self._stalk_run = max(0.3, min(0.8, (abs(dx) - 1.6 * pet.W) / (2.0 * pet.WALK)))
+        pet.stalk_t = pet.excite_t = 0.3
+        if self._stalk == "schleichen":
+            stop = ball.x - d * 1.6 * pet.W
+            if abs(pet.x - stop) > pet.W * 0.2 and d * (stop - pet.x) > 0:
+                if pet.state != "walk" or abs(pet.target_x - stop) > pet.W * 0.3:
+                    pet.walk_to(stop, run=self._stalk_run)
+                return True
+            pet.state, pet.timer, pet.target_x, pet.facing = "idle", 3.0, pet.x, d
+            pet.start_gesture("pirschen")
+            self._stalk = "wackeln"
+            return True
+        if pet.gesture is not None and pet.gesture["kind"] == "pirschen":
+            return True
+        self._stalk = "fertig"                              # Sprung!
+        pet._ballistic_to(ball.x, ball.bottom, apex=0.6 * pet.line_h)
+        return True
 
     def _return_spot(self, world):
         """Wohin der Ball gebracht wird: auf die Ebene direkt unter deinem Mauszeiger."""

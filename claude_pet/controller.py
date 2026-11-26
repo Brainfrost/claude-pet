@@ -162,9 +162,12 @@ class Controller:
         pet, pr = self.pet, self.prof
         pet.mood, pet.bond = pr["mood"], pr["bond"]
         pet.tricks = set(pr.get("tricks", []))
-        if pet.stage != pr.get("stage", "baby"):
-            pet.stage = pr["stage"]
-            pet.set_scale(pet.line_h)
+        if pet.stage != pr.get("stage", "baby") and pet.hatch is None:
+            if pet.stage == "baby":
+                pet.start_hatch(pr["stage"])            # Ei wackelt, bekommt Risse, bricht auf
+            else:
+                pet.stage = pr["stage"]
+                pet.set_scale(pet.line_h)
 
     def dev_reset(self):
         """Nur für die Entwicklung (CLAUDE_PET_DEV=1): Pet archivieren und neu adoptieren."""

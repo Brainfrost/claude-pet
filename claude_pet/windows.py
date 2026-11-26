@@ -11,7 +11,10 @@ from PyQt6.QtGui import (QColor, QFont, QFontMetrics, QGuiApplication, QPainter,
 from PyQt6.QtWidgets import QWidget
 
 from . import creatures, effects, osapi
+from .pet import GROUND, NO_BODY
 from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_VISION, ROW_WINDOW
+
+SHADOW_ROWS = 1         # Rasterpixel unter den Füßen, in die der Schatten reicht
 
 _OVERLAY_FLAGS = (Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
                   | Qt.WindowType.Tool | Qt.WindowType.WindowTransparentForInput
@@ -52,8 +55,9 @@ class PetWindow(QWidget):
         osapi.prepare_overlay(int(self.winId()))
 
     def geometry_for(self, pet):
+        """Fenster = Bild der Figur plus ein Streifen unter den Füßen für den Schatten."""
         w, h, fx, fy = self.ctl.renderer.size(pet.creature, pet.px)
-        return int(pet.x - fx), int(pet.y - fy), w, h
+        return int(pet.x - fx), int(pet.y - fy), w, h + SHADOW_ROWS * pet.px
 
     # --------------------------------------------------------------- Zeichnen
     def paintEvent(self, e):
@@ -76,14 +80,24 @@ class PetWindow(QWidget):
             # klettert in den / aus dem Reiter: oberhalb der Reiter-Unterkante unsichtbar
             top = int(pet.clip_y - self.geometry().y())
             p.setClipRect(0, max(0, top), img.width(), img.height())
-        if pet.squash > 0.05:
-            # Landung: kurz breit gedrückt, Füße bleiben am Boden
-            k = pet.squash * 0.18
+        b = pet.body()
+        if (pet.state in GROUND and pet.support is not None) or pet.windup > 0:
+            # weicher Schatten unter den Füßen (verschwindet im Sprung)
             w, h = img.width(), img.height()
-            nw, nh = int(w * (1 + k)), int(h * (1 - k))
-            p.drawImage(QRect((w - nw) // 2, h - nh, nw, nh), img)
-        else:
-            p.drawImage(0, 0, img)
+            sw, sh = pet.W * 0.72 * b["sx"], max(2.0, s * 1.5)
+            p.setBrush(QColor(0, 0, 0, 55))
+            p.drawEllipse(QRectF(w / 2 - sw / 2 + b["dx"] * s, h - sh / 2, sw, sh))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+        if b != NO_BODY:
+            # Geste/Landung/Flug: um die Fußmitte (gehalten: um den Kopf) strecken und neigen
+            w, h = img.width(), img.height()
+            ax, ay = w / 2, (creatures.MARGIN_TOP * s if b["pivot"] == "kopf" else h)
+            p.translate(ax + b["dx"] * s, ay + b["dy"] * s)
+            p.rotate(b["rot"])
+            p.scale(b["sx"], b["sy"])
+            p.translate(-ax, -ay)
+        p.drawImage(0, 0, img)
+        p.resetTransform()
         self._draw_effects(p, pet, img.width() / 2, (creatures.MARGIN_TOP - 1) * s, s)
         p.end()
 
@@ -105,6 +119,44 @@ class PetWindow(QWidget):
                 effects.draw_text(p, cx + fx["dx"] * 0.5, top + 2 * s - rise, "♪", 6 * s, "#b8f2ff", alpha)
             elif kind == "gähn":
                 effects.draw_text(p, cx + 3 * s, top + 3 * s - rise * 0.5, "gähn", 4 * s, "#cfe8ff", alpha)
+            elif kind == "hatschi":
+                effects.draw_text(p, cx + 4 * s * pet.facing + k * 3 * s * pet.facing, top + 4 * s - rise * 0.4,
+                                  "hatschi!", 4 * s, "#ffffff", alpha)
+            elif kind == "schale":
+                # Eierschale fliegt in Splittern auseinander und fällt
+                foot = top + (pet.creature["h"] + 1) * s
+                for i, ang in enumerate((-2.6, -2.1, -1.4, -0.9, -0.4, -2.9)):
+                    dist = (6 + (i % 3) * 2.5) * s * k
+                    px_ = cx + math.cos(ang) * dist
+                    py_ = foot - 3 * s + math.sin(ang) * dist * 0.8 + k * k * 9 * s
+                    size = max(2, int(s * (1.6 if i % 2 else 1.2)))
+                    for col, off in (("#8b7b5a", 0), ("#f4ecd8", max(1, size // 3))):
+                        c = QColor(col)
+                        c.setAlpha(alpha)
+                        p.fillRect(int(px_) + off, int(py_) + off, size - off, size - off, c)
+            elif kind == "funkeln":
+                # kleines Pluszeichen-Funkeln, das kurz aufblitzt
+                ang = fx["dx"]
+                r = (5 + 2 * math.sin(ang * 3)) * s
+                px_, py_ = cx + math.cos(ang) * r, top + 9 * s + math.sin(ang) * r * 0.7
+                arm = max(1, int(s * (1.6 - abs(k - 0.4) * 2)))
+                c = QColor("#fff4b0")
+                c.setAlpha(alpha)
+                q = max(1, s // 2)
+                p.fillRect(int(px_ - arm), int(py_ - q / 2), 2 * arm, q, c)
+                p.fillRect(int(px_ - q / 2), int(py_ - arm), q, 2 * arm, c)
+            elif kind == "staub":
+                # kleine Wölkchen an den Füßen, die zur Seite wegpuffen und vergehen
+                foot = top + (pet.creature["h"] + 1) * s
+                c = QColor("#d9d4c7")
+                c.setAlpha(int(alpha * 0.8))
+                sides = (-1, 1) if not fx["dx"] else (1 if fx["dx"] > 0 else -1,)
+                for side in sides:
+                    for i in range(3):
+                        size = max(1, int(s * (1.4 - i * 0.35) * (1 - 0.5 * k)))
+                        px_ = cx + side * (pet.W * 0.25 + (i * 1.6 + k * 4) * s)
+                        py_ = foot - s - i * 0.6 * s - k * 2 * s
+                        p.fillRect(int(px_ - size / 2), int(py_ - size), size, size, c)
             elif kind == "krümel":
                 c = QColor("#c8a26b")
                 c.setAlpha(alpha)

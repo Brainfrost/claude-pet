@@ -50,8 +50,11 @@ VERBS = {
     "tanzen": "ein kurzes Freudentänzchen",
     "huepfen": "einmal hochhüpfen",
     "umschauen": "sich verwundert umschauen",
+    "strecken": "sich genüsslich lang strecken",
+    "schuetteln": "sich kräftig durchschütteln",
+    "winken": "deinem Menschen fröhlich zuwinken",
 }
-INSTANT = {"tanzen", "huepfen", "umschauen", "ausflug", "verstecken"}
+INSTANT = {"tanzen", "huepfen", "umschauen", "strecken", "schuetteln", "winken", "ausflug", "verstecken"}
 DURATION = {"zuschauen": (20, 240), "hinlaufen": (10, 120), "fressen": (5, 30), "sitzen": (15, 240),
             "schlafen": (30, 300), "erkunden": (20, 180), "zur_maus": (10, 60)}
 REASONS = {
@@ -334,7 +337,7 @@ class Mind:
     def _start(self, st, world):
         pet, brain = self.ctl.pet, self.ctl.brain
         v = st.verb
-        if v in ("tanzen", "huepfen", "umschauen"):
+        if v in ("tanzen", "huepfen", "umschauen", "strecken", "schuetteln", "winken"):
             pet.perform(v)
             return True
         if v == "sitzen":

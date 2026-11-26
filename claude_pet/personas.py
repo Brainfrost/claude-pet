@@ -120,6 +120,9 @@ ACTIONS = {
     "hinsetzen": "sich hinsetzen und zuschauen",
     "einschlafen": "sich hinlegen und einschlafen",
     "umschauen": "sich verwundert umschauen",
+    "strecken": "sich genüsslich lang strecken",
+    "schuetteln": "sich kräftig durchschütteln",
+    "winken": "deinem Menschen fröhlich zuwinken",
     "hinlaufen": "zu einem Wort im Terminal laufen (Wort in 'ziel' angeben)",
 }
 

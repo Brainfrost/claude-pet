@@ -6,7 +6,7 @@ Das Pet entscheidet selbst, wie es sich im Kleinen bewegt (laufen, springen, sit
 import math
 import random
 
-from .creatures import STAGE_PX
+from .creatures import SLEEP, STAGE_PX
 from .world import (OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_VISION, ROW_WINDOW, Platform, keep_on_screens,
                     screen_span)
 
@@ -23,6 +23,52 @@ AWAKE_DRAIN = 0.04      # wach sein macht langsam müde (pro Sekunde, außer bei
 TIRED, EXHAUSTED = 40.0, 12.0
 START_GRACE = 15.0      # s: so lange nach dem Start kostet Bewegung keine Energie (sonst macht jeder Neustart müde)
 CROUCH_T, HANG_T, CLIMB_T = 0.22, 0.35, 0.40
+BLINK_T = 0.17          # s: ein Lidschlag (halb – zu – halb)
+# Sprung: kurz ausholen (in die Knie, steht still), dann erst abheben. Hüpfer / Sprung / großer Satz.
+WINDUP_HOP, WINDUP_JUMP, WINDUP_LEAP = 0.09, 0.12, 0.16
+LAND_T = 0.36           # s: Landung federn (stauchen – strecken – nachwippen)
+TUCK = 0.22             # |vy| unter diesem Anteil der Absprung-Geschwindigkeit = Scheitel: Beine angezogen
+SQUISHY = {"schleim", "geist", "krake"}   # weiche Figuren: wabbeln beim Laufen
+HATCH_T, HATCH_BURST = 2.8, 1.7     # s: Schlüpfen gesamt / wann die Schale aufbricht
+LIE_DOWN_T = 0.35       # s: beim Einschlafen erst sitzen, dann hinlegen
+# Gesten: kurze Körper-Animationen, die für alle Figuren ohne eigene Frames funktionieren (strecken,
+# neigen, wackeln um die Fußmitte). Rein darstellend – sie ändern weder Zustand noch Position.
+# Name -> (Dauer in s, Zustände, in denen sie laufen darf; None = überall)
+GESTURES = {
+    "strecken":   (1.3, {"idle"}),
+    "schuetteln": (0.8, {"idle", "sit", "happy"}),
+    "kopfschief": (1.6, {"idle", "sit", "talk"}),
+    "umschauen":  (1.5, {"idle", "sit"}),
+    "zittern":    (0.9, None),
+    "wippen":     (1.4, {"idle", "happy"}),
+    "tanzen":     (2.6, {"happy", "idle"}),
+    "schmiegen":  (2.0, {"happy"}),
+    "winken":     (1.8, {"idle", "sit", "happy", "talk"}),
+    "niesen":     (1.5, {"idle", "sit"}),
+    "pirschen":   (0.8, {"idle"}),             # geduckt mit dem Hintern wackeln, gleich wird gesprungen
+}
+# Zappeleien im Leerlauf: (Wahrscheinlichkeit pro Sekunde, Gewichte) je Charakter
+FIDGETS = {
+    "faul":       (0.035, {"strecken": 3, "kopfschief": 1, "schuetteln": 0.5, "niesen": 0.3}),
+    "neugierig":  (0.09, {"kopfschief": 3, "umschauen": 2, "strecken": 1, "schuetteln": 0.5, "niesen": 0.3}),
+    "verspielt":  (0.10, {"wippen": 2, "schuetteln": 2, "kopfschief": 1, "strecken": 1, "niesen": 0.3}),
+    "aengstlich": (0.08, {"umschauen": 3, "zittern": 1, "kopfschief": 1, "niesen": 0.3}),
+}
+SIT_FIDGETS = {"kopfschief", "umschauen", "schuetteln", "niesen"}
+NO_BODY = {"sx": 1.0, "sy": 1.0, "rot": 0.0, "dx": 0.0, "dy": 0.0, "pivot": "fuss"}
+# Mund beim Reden: unregelmäßig, damit es nicht wie ein Metronom klappert (Schritt 0,11 s)
+TALK_MOUTH = ("open", "shut", "open", "rest", "open", "open", "shut", "rest", "wide", "shut", "open", "rest")
+GREET_AFTER = 45.0      # s ohne Maus in der Nähe: kommt sie wieder, winkt das Pet
+
+
+def _keys(k, frames):
+    """Wert zur Zeit k (0..1) aus Stützpunkten [(k, wert), …], weich (smoothstep) dazwischen."""
+    for (k0, v0), (k1, v1) in zip(frames, frames[1:]):
+        if k <= k1:
+            q = 0.0 if k1 <= k0 else min(1.0, max(0.0, (k - k0) / (k1 - k0)))
+            q = q * q * (3 - 2 * q)
+            return v0 + (v1 - v0) * q
+    return frames[-1][1]
 
 # Wie sich die Charaktere bewegen
 TRAITS = {
@@ -58,6 +104,24 @@ class Pet:
         self.walk_phase = 0.0
         self.next_blink = 3.0
         self.blink_t = 0.0
+        self.look = (0, 0)          # Blickrichtung der Augen (siehe _tick_look)
+        self.look_hold = 0.0
+        self.glance_t = 0.0
+        self.yawn_t = 0.0           # gähnt gerade (Mund weit auf, Augen zu)
+        self.surprise_t = 0.0       # erschrocken: große Augen, „o“-Mund
+        self.dizzy_t = 0.0          # nach harter Landung: X-Augen
+        self.dust_t = 0.0           # Abstand der Staubwölkchen beim Rennen
+        self.mouse_far_t = 0.0      # so lange war die Maus nicht mehr in der Nähe (fürs Winken)
+        self.windup = 0.0           # holt gerade zum Sprung aus (s verbleibend)
+        self.windup_total = 1.0
+        self.land_t = 9.0           # s seit der letzten Landung
+        self.land_k = 0.0           # wie hart sie war (0..1)
+        self.jump_v0 = 0.0          # Absprung-Geschwindigkeit (für den Scheitelpunkt)
+        self.hatch = None           # schlüpft gerade: {"t", "to"} (siehe start_hatch)
+        self.state_t = 0.0          # s im aktuellen Zustand
+        self._last_state = None
+        self.stalk_t = 0.0          # pirscht sich an (geduckt schleichen), setzt das Brain
+        self.excite_t = 0.0         # aufgeregt (Ball fliegt): Funkelaugen, Schwanz wedelt
         self.effects = []
         self.placed = False
         self.busy = False           # Brain steuert gerade: keine eigenen Entscheidungen
@@ -85,6 +149,7 @@ class Pet:
         self.energy = 100.0         # 0..100 – sinkt durch Toben, steigt durch Sitzen/Schlafen
         self.grace = START_GRACE    # s nach dem Start: Einzug (Fallen, Heimspringen) kostet nichts
         self.effort = 1.0           # Faktor für den Energieverbrauch (Bug-Jagd: Spiel strengt weniger an)
+        self.gesture = None         # laufende Geste: {"kind", "t", "dur"} (siehe GESTURES)
         self.set_scale(24)
 
     # ------------------------------------------------------------ Maßstab
@@ -244,6 +309,7 @@ class Pet:
         was_sleeping = self.state == "sleep"
         self.state = "happy"
         self.timer = 2.0
+        self.start_gesture("schmiegen")
         for i in range(1 if was_sleeping else 3):
             self._effect("heart", life=1.4, dx=random.uniform(-0.4, 0.4) * self.W, delay=i * 0.25)
 
@@ -267,6 +333,7 @@ class Pet:
         elif kind == "error":
             if p == "aengstlich":
                 self._effect("!", life=1.0)
+                self.start_gesture("zittern")
                 if g:
                     self._hop(-560)
                     self.vx = random.choice((-1, 1)) * 220 * self.S
@@ -291,7 +358,7 @@ class Pet:
 
     def perform(self, action):
         """Eine von Haiku gewählte Aktion ausführen (verstecken/hinlaufen macht das Brain)."""
-        if self.state in ("held", "hidden", "cling") or self.state in TRANSITION:
+        if self.state in ("held", "hidden", "cling") or self.state in TRANSITION or self.hatch:
             return
         g = self.grounded and not self.busy
         if action == "huepfen" and g:
@@ -303,8 +370,22 @@ class Pet:
                 self._effect("♪", life=1.2, dx=random.uniform(-0.5, 0.5) * self.W, delay=i * 0.35)
             if g:
                 self.state, self.timer = "happy", 2.6
+                self.start_gesture("tanzen")
+        elif action == "strecken" and g and self.state in ("idle", "sit", "happy"):
+            self.state, self.timer = "idle", max(self.timer, 1.6)
+            self.start_gesture("strecken")
+        elif action == "winken" and g and self.state != "sleep":
+            if self.state not in GESTURES["winken"][1]:
+                self.state, self.timer = "idle", 2.0
+            self.timer = max(self.timer, 2.0)
+            self.start_gesture("winken")
+        elif action == "schuetteln" and g and self.state != "sleep":
+            if self.state not in ("idle", "sit", "happy"):
+                self.state, self.timer = "idle", 1.2
+            self.start_gesture("schuetteln")
         elif action == "erschrecken":
             self._effect("!", life=0.9)
+            self.start_gesture("zittern")
             if g:
                 self._hop(-520)
                 self.vx = random.choice((-1, 1)) * 200 * self.S
@@ -315,8 +396,10 @@ class Pet:
         elif action == "umschauen":
             self._effect("?", life=1.0)
             if g:
-                self.facing = -self.facing
-                self.state, self.timer = "idle", 1.5
+                if self.state not in ("idle", "sit"):
+                    self.state = "idle"
+                self.timer = max(self.timer, 1.6)
+                self.start_gesture("umschauen")
 
     @property
     def tired(self):
@@ -536,8 +619,18 @@ class Pet:
         self.anim_t += dt
         self.grace = max(0.0, self.grace - dt)
         self.squash = max(0.0, self.squash - dt * 4)
+        self.land_t += dt
+        if self.state not in AIR:
+            self.windup = 0.0                             # gepackt, gelandet …: kein Absprung mehr offen
         self._tick_effects(dt)
         self._tick_blink(dt)
+        self._tick_look(dt, cursor)
+        self._tick_gesture(dt)
+        self._tick_hatch(dt)
+        if self.state != self._last_state:
+            self._last_state, self.state_t = self.state, 0.0
+        else:
+            self.state_t += dt
         st = self.state
         self._recover(dt, st)
         if self.spin > 0 and st not in AIR:
@@ -605,12 +698,18 @@ class Pet:
                 self.tab_target = None
 
     def _air(self, dt, world, screen_floor, vbounds):
+        if self.windup > 0:
+            self.windup -= dt                             # noch in den Knien: erst danach abheben
+            if self.windup <= 0 and self.vy < -350 * self.S:
+                self._dust(force=True)                    # kräftiger Absprung wirbelt Staub auf
+            return
         if self.tab_target and self.state == "jump" and self.vy >= -40 * self.S:
             self._hang_at(*self.tab_target)               # Scheitelpunkt: am Reiter festhalten
             return
         if self.double_hop and self.vy > 0:
             self.double_hop = False                 # Doppelsprung: in der Luft nachlegen
             self.vy = -380 * self.S
+            self.jump_v0 = abs(self.vy)
             self._effect("*", life=0.5)
         if self.spin > 0:
             self.spin += dt * self.spin_rate
@@ -666,20 +765,29 @@ class Pet:
         self.vx = self.vy = 0.0
         self.support = p
         self.pane = p.pane if p.pane >= 0 else None
-        self.thrown = False
+        thrown, self.thrown = self.thrown, False
         self.edge_done = False
-        self.squash = min(1.0, impact / (1400 * self.S))
+        self.land_t, self.land_k = 0.0, min(1.0, impact / (1400 * self.S))     # federn (body)
+        if impact > 700 * self.S:
+            self._dust()
         if impact > 2200 * self.S:
             self._effect("*", life=1.6)
             self.state, self.timer = "sit", random.uniform(1.5, 3)
+            self.start_gesture("schuetteln")                  # benommen den Kopf schütteln
+            self.dizzy_t = 1.8
         else:
             self.state, self.timer = "idle", random.uniform(*self.traits["idle"]) * 0.5
+            if thrown and impact > 900 * self.S:
+                self.start_gesture("schuetteln")
+                self.dizzy_t = 1.0
 
     def _ground(self, dt, world):
         p = self.support
         if p is None:
             self._start_fall(0, 0)
             return
+        if self.hatch is not None:
+            return                                        # schlüpft: bleibt, wo es ist
         st = self.state
         if st == "talk":
             return                                    # steht still und redet
@@ -695,6 +803,8 @@ class Pet:
             self.timer -= dt
             if st == "sleep" and random.random() < dt * 0.9:
                 self._effect("z", life=2.2, dx=self.W * 0.3)
+            if st in ("idle", "sit") and self.timer > 0:
+                self._maybe_fidget(dt, st)
             if self.timer > 0 or self.busy:
                 return
             if st == "sit":
@@ -706,6 +816,11 @@ class Pet:
                 return
             if st in ("sleep", "happy"):
                 self.state, self.timer = "idle", random.uniform(*self.traits["idle"])
+                if st == "sleep":                         # aufgewacht: erst mal strecken
+                    self.timer = max(self.timer, 1.6)
+                    self.start_gesture("strecken")
+                    if random.random() < 0.5:
+                        self._effect("gähn", life=1.8)
                 return
             self._decide(world)
         elif st == "walk":
@@ -714,6 +829,11 @@ class Pet:
             self._spend(dt * 0.25 * self.run * (1.4 if self.carrying else 1.0))
             step = self.WALK * self.run * (0.75 if self.tired else 1.0) * dt
             self.walk_phase += step
+            if self.run > 1.3:                            # rennt: kleine Staubwölkchen hinter sich
+                self.dust_t -= dt
+                if self.dust_t <= 0:
+                    self.dust_t = 0.22
+                    self._dust(-d)
             if abs(self.target_x - self.x) <= step:
                 self.x = self.target_x
                 self.run = 1.0
@@ -919,9 +1039,14 @@ class Pet:
         self.vx = (tx - self.x) / T
         self.vy = (ty - self.y - 0.5 * self.G * T * T) / T
         self.facing = 1 if self.vx >= 0 else -1
+        if self.grounded:
+            self._windup(WINDUP_LEAP)
+        self.jump_v0 = abs(self.vy)
         self.state, self.support, self.thrown = "jump", None, True
 
-    def _ballistic_to(self, tx, ty, apex):
+    def _ballistic_to(self, tx, ty, apex, windup=True):
+        if windup and self.grounded:
+            self._windup(WINDUP_JUMP)
         self._pass_own_floor(ty)
         self._spend(1.5)
         top = min(self.y, ty) - apex
@@ -931,13 +1056,17 @@ class Pet:
         T = t_up + t_down
         self.vx = (tx - self.x) / T
         self.vy = vy0
+        self.jump_v0 = abs(vy0)
         self.facing = 1 if self.vx >= 0 else -1
         self.state, self.support = "jump", None
         if "purzelbaum" in self.tricks and random.random() < 0.25:
             self._start_spin(T)
 
     def _hop(self, vy):
+        if self.grounded:
+            self._windup(WINDUP_HOP)
         self.vy = vy * self.S
+        self.jump_v0 = abs(self.vy)
         self.vx = 0.0
         self.state, self.support = "jump", None
         self._spend(1.5)
@@ -975,6 +1104,24 @@ class Pet:
     # ------------------------------------------------------------ Effekte & Darstellung
     def _effect(self, kind, life, dx=0.0, delay=0.0):
         self.effects.append({"kind": kind, "age": -delay, "life": life, "dx": dx})
+        if kind == "gähn":
+            self.yawn_t = max(self.yawn_t, 1.3 + delay)
+        elif kind == "!":
+            self.surprise_t = max(self.surprise_t, 0.8 + delay)
+
+    def _tucked(self):
+        """Am Scheitel eines richtigen Sprungs (nicht beim Fallen, nicht beim Purzelbaum)."""
+        return (self.state == "jump" and self.spin == 0 and self.windup <= 0
+                and self.jump_v0 > 500 * self.S and abs(self.vy) < TUCK * self.jump_v0)
+
+    def _windup(self, t):
+        """Ausholen vor dem Absprung (nur vom Boden aus)."""
+        self.windup = self.windup_total = t
+
+    def _dust(self, side=0, force=False):
+        """Staubwölkchen an den Füßen (side 0 = beide Seiten, sonst nur dorthin)."""
+        if force or self.state in GROUND or self.support is not None:
+            self._effect("staub", life=0.45, dx=side)
 
     def _tick_effects(self, dt):
         for e in self.effects:
@@ -984,15 +1131,315 @@ class Pet:
     def _tick_blink(self, dt):
         self.next_blink -= dt
         if self.next_blink <= 0:
-            self.blink_t = 0.13
-            self.next_blink = random.uniform(2.8, 4.6)
+            self.blink_t = BLINK_T
+            # ab und zu zweimal kurz hintereinander
+            self.next_blink = 0.3 if random.random() < 0.15 else random.uniform(2.8, 4.6)
         self.blink_t = max(0.0, self.blink_t - dt)
+
+    def _tick_look(self, dt, cursor):
+        """Wohin die Augen schauen (in Blickrichtung der Figur: x 1 = nach vorn, y -1 = nach oben).
+        Maus in der Nähe: zur Maus. Laufen: nach vorn, Fallen: nach unten, sonst ab und zu umherblicken."""
+        self.yawn_t = max(0.0, self.yawn_t - dt)
+        self.stalk_t = max(0.0, self.stalk_t - dt)
+        self.excite_t = max(0.0, self.excite_t - dt)
+        self.surprise_t = max(0.0, self.surprise_t - dt)
+        self.dizzy_t = max(0.0, self.dizzy_t - dt)
+        if cursor is not None:
+            # kommt die Maus nach einer Weile wieder vorbei: winken
+            near = (cursor[0] - self.x) ** 2 + (cursor[1] - self.y) ** 2 < (5 * self.W) ** 2
+            if not near:
+                self.mouse_far_t += dt
+            else:
+                if (self.mouse_far_t > GREET_AFTER and self.gesture is None
+                        and self.state in ("idle", "sit") and self.energy > 15):
+                    self.start_gesture("winken")
+                self.mouse_far_t = 0.0
+        self.look_hold -= dt
+        if self.look_hold > 0:
+            return
+        self.look_hold = 0.12                             # nicht bei jedem Bild hin und her zucken
+        st = self.state
+        if st in ("sleep", "happy", "hidden"):
+            self.look = (0, 0)
+            return
+        if st in AIR or st == "fly":
+            self.look = (0, 1 if self.vy > 0 else -1)
+            return
+        if st in ("hang", "climb_in", "climb_out", "crouch"):
+            self.look = (0, 1 if st == "climb_out" else -1)   # schaut, wo es hinklettert
+            return
+        if cursor is not None:
+            dx, dy = cursor[0] - self.x, cursor[1] - (self.y - self.H * 0.6)
+            if dx * dx + dy * dy < (14 * self.W) ** 2:
+                lx = (1 if dx > 0 else -1) * self.facing if abs(dx) > self.W * 0.4 else 0
+                ly = -1 if dy < -self.H * 0.5 else 1 if dy > self.H * 0.5 else 0
+                self.look = (lx, ly)
+                return
+        if st == "walk":
+            self.look = (1, 0)
+            return
+        self.glance_t -= 0.12
+        if self.glance_t <= 0:
+            self.glance_t = random.uniform(1.2, 3.5)
+            self.look = random.choice(((0, 0), (0, 0), (1, 0), (-1, 0), (1, -1), (0, -1), (-1, -1), (1, 1)))
+
+    # ------------------------------------------------------------ Gesten
+    def start_gesture(self, kind, dur=None):
+        if kind not in GESTURES:
+            return False
+        d, allowed = GESTURES[kind]
+        if allowed is not None and self.state not in allowed:
+            return False
+        self.gesture = {"kind": kind, "t": 0.0, "dur": dur or d, "facing": self.facing}
+        return True
+
+    # ------------------------------------------------------------ Schlüpfen
+    def start_hatch(self, new_stage):
+        """Vom Baby zur nächsten Stufe: das Ei wackelt, bekommt Risse und bricht auf. Geht das gerade
+        nicht (in der Luft, versteckt, gehalten), wächst es ohne Auftritt."""
+        if self.hatch is not None:
+            return True
+        if self.stage != "baby" or not self.placed or self.state not in GROUND or self.support is None:
+            self.stage = new_stage
+            self.set_scale(self.line_h)
+            return False
+        self.hatch = {"t": 0.0, "to": new_stage}
+        self.state, self.timer, self.gesture = "idle", HATCH_T + 1.0, None
+        return True
+
+    def _tick_hatch(self, dt):
+        h = self.hatch
+        if h is None:
+            return
+        t0, h["t"] = h["t"], h["t"] + dt
+        early = h["t"] < HATCH_BURST and self.state not in GROUND       # gepackt o.ä.: sofort fertig
+        if early or t0 < HATCH_BURST <= h["t"]:
+            self.stage = h["to"]                         # Schale bricht auf
+            self.set_scale(self.line_h)
+            self._effect("schale", life=1.1)
+            for i in range(4):
+                self._effect("funkeln", life=0.9, dx=i * 1.7, delay=i * 0.12)
+            self._dust(force=True)
+            if self.state in GROUND:
+                self.state, self.timer = "happy", 1.4
+            if early:
+                self.hatch = None
+                return
+        if h["t"] >= HATCH_T:
+            self.hatch = None
+            self._effect("heart", life=1.3)
+            self._effect("heart", life=1.3, dx=0.3 * self.W, delay=0.2)
+
+    def _crack(self):
+        h = self.hatch
+        if h is None or h["t"] >= HATCH_BURST:
+            return 0
+        return min(3, int(h["t"] / (HATCH_BURST / 3.5)))
+
+    def _tick_gesture(self, dt):
+        g = self.gesture
+        if g is None:
+            return
+        allowed = GESTURES[g["kind"]][1]
+        if allowed is not None and self.state not in allowed:
+            self.gesture = None                           # hochgehoben, losgelaufen, gesprungen …
+            return
+        t0, g["t"] = g["t"], g["t"] + dt
+        if g["kind"] == "umschauen":
+            # links, rechts, links: endet andersherum als vorher (wie früher das einfache Umdrehen)
+            for at in (0.3, 0.75, 1.2):
+                if t0 < at <= g["t"]:
+                    self.facing = -self.facing
+        elif g["kind"] == "niesen" and t0 < 0.55 * g["dur"] <= g["t"]:
+            self._effect("hatschi", life=1.1)
+            self._dust(g["facing"])
+        if g["t"] >= g["dur"]:
+            self.gesture = None
+
+    def _maybe_fidget(self, dt, st):
+        """Im Leerlauf ab und zu eine kleine Zappelei, je nach Charakter."""
+        if self.gesture is not None:
+            return
+        rate, weights = FIDGETS.get(self.personality, FIDGETS["neugierig"])
+        if st == "sit":
+            rate *= 0.5
+            weights = {k: w for k, w in weights.items() if k in SIT_FIDGETS} or {"kopfschief": 1}
+        if self.tired:
+            weights = dict(weights, strecken=weights.get("strecken", 0) + 3)
+            if st == "sit":
+                weights.pop("strecken")
+        if random.random() >= rate * dt:
+            return
+        kinds = list(weights)
+        self.start_gesture(random.choices(kinds, [weights[k] for k in kinds])[0])
+
+    def body(self):
+        """Verformung fürs Zeichnen: Streckung (sx, sy), Neigung in Grad (im Uhrzeigersinn), Versatz in
+        Rasterpixeln (dx, dy) und Drehpunkt („fuss“ = Mitte der Fußsohle, „kopf“ = oben am Kopf)."""
+        b = dict(NO_BODY)
+        st = self.state
+        t = self.anim_t
+        if st in ("held", "cling"):
+            # baumelt an der Hand / am Mauszeiger hin und her
+            b["rot"], b["pivot"] = 7 * math.sin(t * 5.5), "kopf"
+            return b
+        if st == "hang":
+            # hängt am Reiter: pendelt, zappelt mit den Beinen
+            b["rot"], b["pivot"] = 9 * math.sin(t * 7.5), "kopf"
+            b["sy"] = 1 + 0.05 * abs(math.sin(t * 9))
+            return b
+        if st in ("climb_in", "climb_out"):
+            # Klimmzug-Rhythmus: Hand über Hand – lang, kurz, links, rechts
+            b["pivot"] = "kopf"
+            b["rot"] = 6 * math.sin(t * math.tau * 2.6)
+            b["sy"] = 1 + 0.09 * math.sin(t * math.tau * 5.2)
+            b["sx"] = 1 - 0.05 * math.sin(t * math.tau * 5.2)
+            return b
+        if st in AIR and self.windup > 0:
+            # ausholen: in die Knie, leicht in Sprungrichtung gelehnt
+            k = 1 - self.windup / max(1e-6, self.windup_total)
+            sq = _keys(k, [(0, 0), (0.6, 1), (1, 0.85)])
+            b["sy"], b["sx"] = 1 - 0.2 * sq, 1 + 0.13 * sq
+            if abs(self.vx) > 40 * self.S:
+                b["rot"] = 5 * sq * (1 if self.vx > 0 else -1)
+        elif st in AIR and self.spin == 0:
+            # im Flug: in Bewegungsrichtung gestreckt und hineingelehnt, am Scheitel zusammengerollt
+            v = min(1.0, abs(self.vy) / (1100 * self.S))
+            b["sy"], b["sx"] = 1 + 0.14 * v, 1 - 0.08 * v
+            b["rot"] = 9 * max(-1.0, min(1.0, self.vx / (500 * self.S)))
+            if self._tucked():
+                b["sy"], b["sx"] = 0.95, 1.05
+        elif st == "walk" and self.run > 1.2:
+            b["rot"] = 7 * self.facing                    # rennt: nach vorn gelehnt
+        elif st == "walk" and self.creature["id"] in SQUISHY:
+            w = abs(math.sin(self.walk_phase / max(1.0, self.W) * math.pi * 1.5))
+            b["sy"], b["sx"] = 1 - 0.07 * w, 1 + 0.05 * w      # wabbelt bei jedem Schritt
+        elif st == "talk":
+            b["rot"] = 2.5 * math.sin(self.anim_t * math.tau * 1.7)          # nickt beim Reden mit
+            b["sy"] = 1 + 0.025 * abs(math.sin(self.anim_t * math.tau * 2.3))
+        elif st == "sleep":
+            br = math.sin(self.anim_t * math.tau / 2.6)                     # tiefes Atmen im Schlaf
+            b["sy"], b["sx"] = 1 + 0.035 * br, 1 - 0.02 * br
+            lean = SLEEP.get(self.creature["id"], {}).get("lean", 0)
+            b["rot"] = -lean * self.facing * min(1.0, self.state_t / LIE_DOWN_T)   # zurückgelehnt
+        if self.stalk_t > 0 and st in ("walk", "idle"):
+            b["sy"], b["sx"] = b["sy"] * 0.84, b["sx"] * 1.1                  # geduckt anpirschen
+            b["rot"] += 3 * self.facing
+        h = self.hatch
+        if h is not None and h["t"] < HATCH_BURST:
+            # im Ei: wackelt immer heftiger, bis die Schale aufbricht
+            k = h["t"] / HATCH_BURST
+            b["rot"] += (2 + 7 * k) * math.sin(h["t"] * math.tau * (2.5 + 3 * k))
+            b["sy"] *= 1 - 0.05 * k * abs(math.sin(h["t"] * math.tau * 3))
+        if self.squash > 0.05:
+            k = self.squash * 0.18                        # ducken (Tab): breit gedrückt, Füße am Boden
+            b["sx"], b["sy"] = b["sx"] * (1 + k), b["sy"] * (1 - k)
+        if self.land_t < LAND_T and st not in AIR:
+            # Landung federn: stauchen – strecken – nachwippen, je härter desto mehr
+            f = _keys(self.land_t / LAND_T, [(0, -1), (0.3, 0.4), (0.6, -0.15), (0.8, 0.05), (1, 0)])
+            k = self.land_k
+            b["sy"] *= 1 + f * 0.22 * k
+            b["sx"] *= 1 - f * 0.15 * k
+        g = self.gesture
+        if g is None:
+            return b
+        t, k, kind = g["t"], min(1.0, g["t"] / g["dur"]), g["kind"]
+        bump = math.sin(math.pi * k)
+        if kind == "strecken":
+            # kurz zusammenducken, lang machen, halten, mit kleinem Nachfedern zurück
+            sy = _keys(k, [(0, 1.0), (0.15, 0.9), (0.45, 1.17), (0.72, 1.17), (0.88, 0.95), (1, 1.0)])
+            b["sy"] *= sy
+            b["sx"] *= 1 - (sy - 1) * 0.6
+        elif kind == "schuetteln":
+            b["rot"] += 10 * math.sin(t * math.tau * 7) * (1 - k)
+            b["sx"] *= 1 + 0.04 * bump
+        elif kind == "kopfschief":
+            b["rot"] += -10 * g["facing"] * _keys(k, [(0, 0), (0.2, 1), (0.8, 1), (1, 0)])
+        elif kind == "umschauen":
+            b["sy"] *= 1 + 0.05 * abs(math.sin(math.pi * t / 0.45))
+        elif kind == "zittern":
+            b["dx"] += 0.7 * math.sin(t * math.tau * 18) * (1 - 0.6 * k)
+        elif kind == "wippen":
+            b["rot"] += 7 * math.sin(t * math.tau * 1.4) * bump
+            b["sy"] *= 1 - 0.04 * abs(math.sin(t * math.tau * 1.4))
+        elif kind == "tanzen":
+            env = _keys(k, [(0, 0), (0.1, 1), (0.9, 1), (1, 0)])
+            b["rot"] += 12 * math.sin(t * math.tau * 1.6) * env
+            b["dx"] += 1.2 * math.sin(t * math.tau * 1.6) * env
+        elif kind == "schmiegen":
+            b["rot"] += 5 * math.sin(t * math.tau * 0.9) * bump
+            b["sy"] *= 1 - 0.05 * bump
+            b["sx"] *= 1 + 0.04 * bump
+        elif kind == "winken":
+            b["rot"] += 4 * math.sin(t * math.tau * 1.4) * bump
+            b["sy"] *= 1 + 0.04 * bump
+        elif kind == "pirschen":
+            b["rot"] += -7 * g["facing"] * math.sin(t * math.tau * 6)           # Hintern wackelt
+            b["dx"] += -0.8 * g["facing"] * abs(math.sin(t * math.tau * 6))
+        elif kind == "niesen":
+            # Luft holen (zurücklehnen, lang machen) – hatschi (nach vorn, gestaucht) – zurückfedern
+            f = g["facing"]
+            b["rot"] += f * _keys(k, [(0, 0), (0.45, -9), (0.55, 12), (0.7, 2), (0.85, -2), (1, 0)])
+            sy = _keys(k, [(0, 1.0), (0.45, 1.1), (0.55, 0.84), (0.7, 1.03), (1, 1.0)])
+            b["sy"] *= sy
+            b["sx"] *= 1 - (sy - 1) * 0.6
+        return b
+
+    def face(self):
+        """Gesichtsausdruck: (Augen-Ausdruck oder None, Mundform, winkt)."""
+        g = self.gesture
+        gk = g["kind"] if g else None
+        k = g["t"] / g["dur"] if g else 0.0
+        st = self.state
+        expr, mouth = None, "rest"
+        if gk == "niesen":
+            expr = "closed" if 0.25 < k < 0.75 else None
+            mouth = "o" if k < 0.5 else "wide" if k < 0.68 else "rest"
+        elif self.yawn_t > 0 and st not in ("held", "fall", "jump", "hidden"):
+            expr, mouth = "closed", "wide"
+        elif self.dizzy_t > 0:
+            expr, mouth = "dizzy", "o"
+        elif self.surprise_t > 0:
+            expr, mouth = "wide", "o"
+        elif gk == "strecken" and 0.35 < k < 0.8:
+            expr = "closed"
+        elif st in ("climb_in", "climb_out", "hang"):
+            mouth = "shut" if int(self.anim_t / 0.2) % 3 else "o"       # strengt sich an
+        elif st == "jump" and self.windup == 0 and self.vy < 0 and self.personality == "verspielt":
+            mouth = "open"                                              # juhu!
+        if mouth == "rest":
+            if st == "talk":
+                mouth = TALK_MOUTH[int(self.anim_t / 0.11) % len(TALK_MOUTH)]
+            elif st == "eat":
+                mouth = "shut" if int(self.anim_t / 0.15) % 2 else "open"      # mampfen
+            elif st == "sleep":
+                mouth = "o" if int(self.anim_t / 1.3) % 2 else "shut"
+            elif st == "happy" or gk in ("winken", "tanzen"):
+                mouth = "open"
+            elif gk == "schmiegen" or self.mood > 75 and st in ("idle", "sit"):
+                mouth = "shut"                                              # zufrieden lächeln
+        if self.hatch is not None and self.hatch["t"] < HATCH_BURST:
+            expr, mouth = ("wide", "o") if self.hatch["t"] > HATCH_BURST * 0.6 else (None, "rest")
+        if expr is None and self.excite_t > 0:
+            expr = "sparkle"                                                # der Ball!
+        if expr is None and self.tired and st in ("idle", "sit", "walk"):
+            expr = "half"
+        return expr, mouth, gk == "winken" or (self.excite_t > 0 and st != "walk")
 
     def pose(self):
         """Was der Renderer zeichnen soll."""
         st = self.state
         if st == "jump":
-            st = "fall" if self.vy > 0 else "jump"
+            if self.windup > 0:
+                st = "windup"                             # in den Knien, gleich geht's los
+            elif self._tucked():
+                st = "tuck"                               # Scheitelpunkt: Beine angezogen
+            else:
+                st = "fall" if self.vy > 0 else "jump"
+        elif st in ("idle", "walk") and self.land_t < 0.1 and self.land_k > 0.4:
+            st = "sit"                                    # harte Landung: kurz in die Knie
+        elif st == "sleep" and self.state_t < LIE_DOWN_T:
+            st = "sit"                                    # erst hinsetzen, dann hinlegen
         elif st in ("cling", "fly"):
             st = "fall"
         elif st == "crouch":
@@ -1001,5 +1448,12 @@ class Pet:
             st = "sit" if int(self.anim_t / 0.15) % 2 else "idle"      # mampfen
         elif st in TRANSITION:
             st = "fall"
+        expr, mouth, wave = self.face()
         return {"state": st, "walk_i": int(self.anim_t / (0.15 / max(0.5, self.run))),
-                "blinking": self.blink_t > 0, "facing": self.facing}
+                "expr": expr, "mouth": mouth, "wave": wave,
+                "tint": self.daypart if self.daypart in ("abend", "nacht") else None,
+                "crack": self._crack(),
+                # Blinzeln: halb zu, ganz zu, halb zu
+                "blinking": BLINK_T * 0.25 < self.blink_t <= BLINK_T * 0.75,
+                "lid": 0 < self.blink_t <= BLINK_T * 0.25 or self.blink_t > BLINK_T * 0.75,
+                "facing": self.facing, "look": self.look}
