@@ -39,6 +39,7 @@ python -m venv .venv
 | `brain.py` | Charakter: welche Session, Tab-Wechsel, Maus-Verhalten |
 | `reactions.py` | erkennt Ereignisse im Text/Tab-Titel, liest laufend mit |
 | `speech.py` / `personas.py` | Haiku-Sprüche + Aktionen, Grund- und individuelle Persönlichkeit |
+| `mind.py` | Hirn: Lagebild → Haiku-Plan (Gedanke, 1–3 Schritte, Gedächtnis), Ausführung über Brain/Pet |
 | `growth.py` / `stats.py` | Entwicklung: XP aus den Transcripts, Stufen, Accessoires, Tricks, Bindung, Stimmung |
 | `creatures.py` | rendert die Figuren aus `design/pet-data.json` |
 | `windows.py` | Fenster: Pet, Sprechblase, Reiter-Effekt, Jahreszeiten, Traumwolke, Bug-Jagd, Entwickler-Ansicht |
@@ -89,7 +90,7 @@ xterm.js zeichnet auf ein Canvas, UIA sieht dort keinen Text. Deshalb:
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 104 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 111 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 
@@ -127,6 +128,22 @@ Fürs Entwickeln: mit `set CLAUDE_PET_DEV=1` gibt es im Tray „Pet archivieren 
 Tabs: Das Pet wohnt in einer Session. Wechselst du den Tab, springt es (außer neugierig) an den
 Reiter seiner Session und schlüpft hinein; öffnest du seinen Tab, kommt es unter dem Reiter hervor.
 Lässt du es auf einem Reiter los, zieht es in diese Session.
+
+## Hirn (Haiku plant das Verhalten)
+
+- `mind.py` schreibt alle 3–5 Min. (Einstellung „Hirn“: normal; sparsam 8–15 Min.; aus) und bei wichtigen
+  Momenten (Claude fertig, Fehler, Rückfrage, Rückkehr aus der Pause) ein **Lagebild**: Uhrzeit, Energie,
+  Stimmung, Bindung, wo das Pet ist, was du tust (Eingabe, Arbeit am Stück, Vordergrund), Sessions aller
+  Terminal-Programme, letzte Ereignisse, was das Pet zuletzt gemacht hat, Gedächtnis, maskierter
+  Bildschirm-Auszug.
+- Haiku antwortet mit `{"gedanke", "plan": [{"tun", "ziel", "dauer"}], "merken"}`. Verben: zuschauen,
+  hinlaufen, fressen, sitzen, schlafen, erkunden, verstecken, zur_maus, ausflug, tanzen, huepfen, umschauen.
+- Das Brain fragt pro Frame `mind.drive()`: Solange ein Schritt läuft, würfelt es keine eigenen Ziele;
+  Reflexe (Maus, Werfen, Fallen, Erschöpfung) bleiben lokal. Unmögliche Schritte werden übersprungen,
+  ohne Plan würfelt das Pet wie bisher.
+- Höchstens 15 Pläne/Stunde (sparsam 6), keine Pläne, wenn du > 4 Min. nicht am Rechner bist. Ein Plan
+  kostet ~2 500 Tokens rein / 150–550 raus (≈ 0,05 Cent zu API-Preisen), 1–3 s.
+- Gedanke ab und zu als Denkwolke (`ThoughtBubble`), Gedächtnis (`profile.json` → `memory`, max. 10 Notizen).
 
 ## Reaktionen und Sprechblasen
 

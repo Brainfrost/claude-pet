@@ -55,6 +55,7 @@ class Brain:
         self._ball_check = 0.0
         self.eat_t = random.uniform(*EAT_EVERY.get(personality, (40, 90))) * 0.5
         self.food_urge = False         # neues Futter im Text gesehen -> bald essen gehen
+        self.mind = None               # mind.Mind: von Haiku geplante Schritte (vom Controller gesetzt)
         self.news = False              # neuer Text erschienen (für die Neugier)
         self.sated_t = 0.0             # so lange (s) ist es noch satt
         self.on_ate = None             # Callback(word, platform, start) – Biss anzeigen, zählen
@@ -219,6 +220,9 @@ class Brain:
             return
         if not world.ok or not world.snap.tabs:
             return
+        if self.mind is not None and self.mind.drive(dt, world):
+            self._personality_tick(dt, world, cursor)   # Reflexe (Maus) bleiben, eigene Ziele nicht
+            return
         if self._maybe_eat(dt, world):
             return
         self.decide_t -= dt
@@ -269,23 +273,29 @@ class Brain:
             return True
         return False
 
-    def _find_food(self, world):
+    def _all_food(self, world):
+        """Alle erreichbaren Futterwörter im Pane des Pets: [(Abstand, (text, row, start, wort))]."""
         pet = self.pet
-        best = None
+        out = []
         for p in world.term_platforms:
             if p.pane != pet.pane or p.row < 0:
                 continue
             r = world.pane_rect(p.pane)
             if r and p.y - pet.H * 1.3 < r[1]:
                 continue                        # zu nah am oberen Rand: kein Platz zum Hinspringen
-            m = max(FOOD.finditer(p.text), key=lambda m: rarity(m.group(0)), default=None)
-            if not m:
-                continue
-            # Seltenes lockt stärker: ein epischer Schatz ist auch weiter weg noch interessant
-            d = (abs(p.y - pet.y) * 2 + abs(p.x0 - pet.x)) / (1 + 2 * rarity(m.group(0)))
-            if best is None or d < best[0]:
-                best = (d, (p.text, p.row, m.start(), m.group(0)))
-        return best[1] if best else None
+            for m in FOOD.finditer(p.text):
+                # Seltenes lockt stärker: ein epischer Schatz ist auch weiter weg noch interessant
+                d = (abs(p.y - pet.y) * 2 + abs(p.x0 - pet.x)) / (1 + 2 * rarity(m.group(0)))
+                out.append((d, (p.text, p.row, m.start(), m.group(0))))
+        return out
+
+    def _find_food(self, world, prefer=""):
+        """Nächstes Futter; mit prefer (Wunsch des Hirns) bevorzugt dieses Wort, falls es zu sehen ist."""
+        food = self._all_food(world)
+        if prefer:
+            wanted = [f for f in food if f[1][3].lower() == prefer.lower()]
+            food = wanted or food
+        return min(food, key=lambda f: f[0])[1] if food else None
 
     def _food_spot(self, world, text, row, start, word):
         """Die Zeile mit dem Futter wiederfinden (sie kann inzwischen gescrollt sein)."""

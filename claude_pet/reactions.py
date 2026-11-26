@@ -145,6 +145,9 @@ class Reactions:
         self.primed = True
 
         self._count_for_diary(events)
+        mind = getattr(self.ctl, "mind", None)
+        if mind is not None and events:
+            mind.note_events(events)
         visible = pet.state != "hidden" and pet.pane is not None
         if not visible:
             return

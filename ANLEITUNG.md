@@ -92,11 +92,17 @@ Terminal genauso.
 - **Tagebuch …**: Jeden Abend schreibt es einen Eintrag über euren Tag, freitags einen Wochenrückblick.
 - **Schatzkiste …**: Jedes gefressene Wort wird gesammelt. Manche sind selten, manche legendär.
 - **Bitte nicht stören**: Es versteckt sich und schweigt.
-- **Einstellungen**: Größe, Redefreude, Pausen-Erinnerung, Bote, Jahreszeiten, Ruhemodus, Autostart.
+- **Einstellungen**: Größe, Redefreude, Hirn, Pausen-Erinnerung, Bote, Jahreszeiten, Ruhemodus, Autostart.
 - **Entwicklung / Accessoires**: Stufe, Bindung, Energie, Statistik.
 
 ## Was es so macht
 
+- **Hat ein kleines Hirn.** Alle paar Minuten überlegt es sich mit Haiku, was es als Nächstes
+  vorhat – je nach Energie, Laune, Tageszeit, was du gerade tust und was im Terminal passiert: Claude
+  beim Arbeiten zuschauen, zu einem Fehler laufen, ein TODO anknabbern, ein Nickerchen … Ab und zu
+  siehst du den Gedanken dazu in einer kleinen Denkwolke. Es merkt sich auch ein paar Dinge über euren
+  Tag. Einstellungen → Hirn: *Normal* (alle 3–5 Min.), *Sparsam* (alle 8–15 Min.) oder *Aus* (würfelt
+  wie früher). Bist du nicht am Rechner, denkt es nicht nach.
 - **Wohnt in einer Session.** Wechselst du den Tab, verschwindet es mit, beim Zurückwechseln sitzt
   es wieder da. Neugierige Pets laufen dir nach.
 - **Reagiert** auf Fehler, Erfolge, Rückfragen, Commits und Pushes. Es liest laufend mit und

@@ -25,9 +25,10 @@ from . import treasure
 from .book import BookWindow
 from .bughunt import BugHunt
 from .dreams import LABEL as DREAM_LABEL, Dreamer
+from .mind import Mind
 from .seasons import Weather
 from .windows import (BallWindow, BiteFx, Bubble, DebugOverlay, DreamCloud, HuntOverlay, PetWindow,
-                      SeasonOverlay, TabFx)
+                      SeasonOverlay, TabFx, ThoughtBubble)
 from .world import World
 
 log = logging.getLogger(__name__)
@@ -56,10 +57,12 @@ class Controller:
         self.prof = growth.ensure_defaults(prof)
         growth.absence(self.prof)
         self.renderer = creatures.Renderer()
+        self.mind = Mind(self)                       # Haiku plant, was das Pet als Nächstes vorhat
         self._new_pet()
 
         self.win = PetWindow(self)
         self.bubble = Bubble()
+        self.thought = ThoughtBubble()              # Gedankenwolke des Hirns
         self.tabfx = TabFx()
         self.bitefx = BiteFx()
         self.ball = None
@@ -140,6 +143,7 @@ class Controller:
         self.brain.on_ate = self.on_ate
         self.brain.on_catch = self.on_catch
         self.brain.on_fetched = self.on_fetched
+        self.brain.mind = self.mind
         self.brain.ball = getattr(self, "ball", None)
         self.pet.daypart = daily.daypart()
         # Energie: zuletzt gespeicherter Stand, plus Erholung für die Zeit, in der das Pet aus war
@@ -384,6 +388,8 @@ class Controller:
                 self.speech.canned("break", force=True, hours=hours)
                 log.info("Pausen-Erinnerung nach %.0f Minuten", mins)
             back = self.work.take_return()
+            if back is not None and back >= 5:
+                self.mind.note("pause_ende")
             if back is not None and back >= 10 and random.random() < 0.7:
                 self.speech.canned("welcome", force=True)
 
@@ -634,6 +640,7 @@ class Controller:
             self.pet.size_factor = f
             self.pet.set_scale(self.pet.line_h)
         self.speech.factor = settings.TALK_FACTOR.get(self.settings.get("talk"), 1.0)
+        self.mind.set_level(self.settings.get("brain", "normal"))
 
     def _ensure_autostart(self):
         try:
@@ -642,6 +649,12 @@ class Controller:
                 log.info("Autostart eingerichtet: %s", settings.autostart_command())
         except OSError:
             log.exception("Autostart konnte nicht eingerichtet werden")
+
+    def show_thought(self, text):
+        """Gedanke des Hirns kurz als Wolke zeigen (nicht, während es redet oder träumt)."""
+        if (self.settings.get("bubbles", True) and not self.quiet_reason and not self.bubble.text
+                and self.dreamer.current is None):
+            self.thought.say(text)
 
     def _say(self, text):
         if self.settings.get("bubbles", True) and not self.quiet_reason:
@@ -748,6 +761,7 @@ class Controller:
         if self.quiet_reason:
             self.win.hide()
             self.bubble.hide()
+            self.thought.hide()
             self.ball_win.hide()
             self.season_win.hide()
             self.dream_win.hide()
@@ -795,6 +809,10 @@ class Controller:
         visible = self.win.isVisible() and pet.state != "hidden"
         self.speech.tick(self.world, pet.pane or 0, visible and pet.grounded)
         self.bubble.follow(pet, visible)
+        self.thought.follow(pet, visible and not self.bubble.isVisible() and not self.dream_win.isVisible())
+        if now - getattr(self, "_mind_t", 0.0) > 1.0:
+            self._mind_t = now
+            self.mind.tick()
         self._tick_dream(dt, pet, visible)
         self._talk(pet)
         self._adapt_rate(pet)
@@ -897,7 +915,7 @@ class Controller:
 
     def _exclusions(self):
         out = []
-        for w in (self.win, self.bubble, self.debug):
+        for w in (self.win, self.bubble, self.thought, self.debug):
             if w.isVisible() and w is not self.debug:
                 g = w.geometry()
                 out.append((g.x(), g.y(), g.x() + g.width(), g.y() + g.height()))

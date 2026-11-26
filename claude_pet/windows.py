@@ -443,6 +443,39 @@ class Bubble(_Overlay):
         p.end()
 
 
+class ThoughtBubble(Bubble):
+    """Gedankenwolke: was das Hirn gerade vorhat (kursiv, mit Gedanken-Kringeln statt Zipfel)."""
+    TAIL = 14
+
+    def __init__(self):
+        super().__init__()
+        self.font_.setItalic(True)
+        self.font_.setPixelSize(13)
+
+    def say(self, text):
+        super().say(text)
+        self.until = time.perf_counter() + 4.5 + 0.05 * len(text)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        top = self.TAIL if self.tail_up else 0
+        body = QRect(1, top + 1, w - 2, h - self.TAIL - 2)
+        p.setPen(QPen(QColor("#cfc8e6"), 1.5))
+        p.setBrush(QColor(44, 38, 70, 225))
+        p.drawRoundedRect(body, 14, 14)
+        tx = self.tail_x
+        dots = ((tx, 4.0, 4), (tx - 4, 10.0, 2.6)) if not self.tail_up else ((tx, top - 4.0, 4), (tx - 4, top - 10.0, 2.6))
+        for x, dy, r in dots:
+            y = body.bottom() + dy if not self.tail_up else dy
+            p.drawEllipse(QRectF(x - r, y - r, 2 * r, 2 * r))
+        p.setPen(QColor("#e9e4ff"))
+        p.setFont(self.font_)
+        p.drawText(self.text_rect.translated(0, top), Qt.TextFlag.TextWordWrap, self.text)
+        p.end()
+
+
 # ===================================================================== Bug-Jagd
 class HuntOverlay(QWidget):
     """Spielfeld über dem Pane: Käfer sind anklickbar, der Rest lässt Klicks durch (Alpha 0)."""

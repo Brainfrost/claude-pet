@@ -13,6 +13,8 @@ def _today():
 
 SIZES = (("klein", "Klein"), ("normal", "Normal"), ("gross", "Groß"))
 TALK = (("aus", "Aus (nur auf Wunsch)"), ("wenig", "Wenig"), ("normal", "Normal"), ("viel", "Viel"))
+BRAIN = (("aus", "Aus (würfelt wie früher)"), ("sparsam", "Sparsam (alle 8–15 Min.)"),
+         ("normal", "Normal (alle 3–5 Min.)"))
 BREAK_MIN = ((60, "1 Stunde"), (90, "1,5 Stunden"), (120, "2 Stunden"), (150, "2,5 Stunden"))
 SWITCHES = (("bubbles", "Sprechblasen anzeigen"),
             ("break_reminder", "Pausen-Erinnerung"),
@@ -96,7 +98,8 @@ class Tray:
         self.a_dnd.setChecked(bool(s.get("dnd")))
         self.a_dnd.blockSignals(False)
         self.m_set.clear()
-        for title, key, opts in (("Größe", "size", SIZES), ("Redefreude", "talk", TALK)):
+        for title, key, opts in (("Größe", "size", SIZES), ("Redefreude", "talk", TALK),
+                                 ("Hirn (Haiku plant)", "brain", BRAIN)):
             sub = self.m_set.addMenu(title)
             for val, label in opts:
                 a = sub.addAction(label)

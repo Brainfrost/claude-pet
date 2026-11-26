@@ -122,10 +122,11 @@ ACTIONS = {
 }
 
 
-def system_prompt(prof):
+def identity(prof):
+    """Wer das Pet ist (Figur, Charakter, Persönlichkeit, Entwicklung, Tageszeit) – gemeinsam für
+    Sprüche und das Hirn (mind.py)."""
     base = CREATURE.get(prof.get("creature"), "Du bist ein kleines Pixel-Haustier.")
     persona = prof.get("persona") or ""
-    actions = "\n".join(f"- {k}: {v}" for k, v in ACTIONS.items())
     return (
         f"Du bist {prof.get('name', 'ein Pet')}, ein winziges Pixel-Haustier, das auf dem Text im Terminal "
         f"deines Menschen herumläuft, während er mit Claude Code (einer KI zum Programmieren) arbeitet.\n"
@@ -137,6 +138,13 @@ def system_prompt(prof):
         + f"Es ist gerade {DAYPART[daily.daypart()]} ({datetime.now():%H:%M}).\n"
         + (f"Du trägst gerade: {', '.join(ACC_NAMES.get(a, a) for a in growth.worn(prof))}.\n"
            if growth.worn(prof) else "")
+    )
+
+
+def system_prompt(prof):
+    actions = "\n".join(f"- {k}: {v}" for k, v in ACTIONS.items())
+    return (
+        identity(prof)
         + "\nRegeln:\n"
         "- Sag genau EINEN kurzen Satz auf Deutsch (höchstens 14 Wörter), in Ich-Form, in deiner Stimme.\n"
         "- Reagiere auf genau EINE Sache, die du sicher verstanden hast – mit Gefühl, Witz, einer Frage oder "
