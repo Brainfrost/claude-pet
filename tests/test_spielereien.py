@@ -221,9 +221,12 @@ def test_can_jump_down_to_a_lower_line_below_itself():
     world = World()
     world.update(make_snapshot(["x" * 70] * 8, rows=20))
     pet = Pet(creatures.get("katze"), "jung", "neugierig")
-    for _ in range(120):
+    pet.busy = True                     # keine eigenen Sprünge, sonst hängt der Test am Zufall
+    for _ in range(600):
         pet.on_world(world)
         pet.step(1 / 60, world, floor, VB, (0, 0))
+        if pet.grounded:
+            break
     start_row = pet.support.row
     target = next(p for p in world.platforms if p.row == start_row + 3)
     pet._ballistic_to(pet.x, target.y, apex=0.7 * pet.line_h)

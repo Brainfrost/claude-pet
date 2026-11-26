@@ -82,6 +82,9 @@ def test_pet_is_sated_after_eating_and_mouse_has_priority():
     assert len(eaten) == 1, f"satt nach dem ersten Wort, nicht {len(eaten)}"
     # satt: auf Futter zeigen löst kein neues Fressen aus
     word, x, plat = w.word_at(2 * CELL_W + 15 * CELL_W + 3, 40 + 4 * LINE_H + LINE_H / 2)
+    # wo das Pet nach 30 s gerade ist (versteckt, im Sprung …), hängt vom Zufall ab: auf die Zeile stellen
+    pet.state, pet.busy, pet.support, pet.pane, pet.y = "idle", False, plat, plat.pane, plat.y
+    brain.set_goal(None)
     assert brain.hovered(word, x, plat, w) and not brain.goal
     # Weg zum Futter wird für die Maus abgebrochen
     brain.sated_t = 0
