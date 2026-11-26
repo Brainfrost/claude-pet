@@ -276,3 +276,22 @@ def test_bote_holt_gesperrte_meldungen_nach(monkeypatch):
     ctl.focused, ctl.world.snap.host = True, "vscode"
     send("Schon gesehen", "vscode")
     assert len(flights) == 2 and not ctl._messenger_queue
+
+
+def test_kanal_zufaellig_und_robust(monkeypatch):
+    """Kanalname nicht erratbar; kaputte oder zu viele Nachrichten beenden das Pet nicht."""
+    from claude_pet import streams
+    monkeypatch.setattr(streams, "_CHANNEL", None)
+    a = streams.channel_name()
+    monkeypatch.setattr(streams, "_CHANNEL", None)
+    assert streams.channel_name() != a                     # jeder Start würfelt neu
+    hub = StreamHub()
+    hub.handle(1, {"type": "hello", "app": "x", "workspace": "y"})
+    import pytest
+    with pytest.raises(ValueError):                        # wird in _on_read abgefangen und geloggt
+        hub.handle(1, {"type": "start", "term": "t", "dims": {"columns": "viele", "rows": 3}})
+    for i in range(streams.MAX_SESSIONS - len(hub.sessions)):
+        hub.handle(1, {"type": "data", "term": f"t{i}", "d": "x"})
+    with pytest.raises(ValueError):
+        hub.handle(1, {"type": "data", "term": "einer-zu-viel", "d": "x"})
+    assert len(hub.sessions) == streams.MAX_SESSIONS

@@ -10,7 +10,7 @@ dann `install.cmd` (Windows) bzw. `install.command` (Mac) doppelklicken, fertig.
 Mac zusätzlich `start.command` und `diagnose.command`.)
 
 > Inoffizielles Hobbyprojekt, nicht mit Anthropic verbunden. „Claude“ und „Claude Code“ sind Marken
-> von Anthropic. Das Pet nutzt dein eigenes Claude-Code-Abo (`claude -p`) und schickt nur maskierte
+> von Anthropic. Das Pet nutzt dein eigenes Claude Code (`claude -p`, Abo oder API-Key) und schickt nur maskierte
 > Ausschnitte an Haiku. Lizenz: [MIT](LICENSE).
 
 ## Starten
@@ -133,7 +133,7 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
 - **Session-Zustand** aus dem Tab-Titel: Claude fertig (✳) → freut sich; Claude fängt an → schaut.
 - **Neuer Text** im sichtbaren Tab: Fehler (`Error:`, Traceback, `failed`, ✗), Erfolg (✓, `passed`,
   „erfolgreich“), Rückfrage/Freigabe („Do you want to…“, `❯ 1. Yes`). Zeilen aus Code-Listings werden ignoriert.
-- **Sprechblasen** über Haiku (`claude -p --model haiku`, dein Abo) mit einem Ausschnitt des sichtbaren
+- **Sprechblasen** über Haiku (`claude -p --model haiku`, dein Abo oder API-Key) mit einem Ausschnitt des sichtbaren
   Texts; Tokens, Passwörter, lange Schlüssel und E-Mail-Adressen werden vorher maskiert. Aufruf ohne
   deine Einstellungen/Hooks, ohne Tools/MCP, ohne Session-Speicherung (`--setting-sources ""`,
   `--no-session-persistence`, `--tools ""`, `--strict-mcp-config`).

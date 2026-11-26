@@ -60,7 +60,7 @@ if ($wt) {
 # ------------------------------------------------------------------ 3. Claude Code
 Write-Step "Claude Code (claude)"
 if (Get-Command claude -ErrorAction SilentlyContinue) {
-    Write-Ok "gefunden – die Sprechblasen nutzen Haiku über dein Claude-Abo"
+    Write-Ok "gefunden – die Sprechblasen nutzen Haiku über dein Claude-Abo bzw. deinen API-Key"
 } else {
     Write-Warn "claude ist nicht im PATH. Das Pet läuft trotzdem, sagt dann aber nur vorgefertigte Sprüche"
     Write-Warn "und kann sich bei der Adoption keine eigene Persönlichkeit ausdenken."

@@ -56,7 +56,7 @@ def check_permissions():
 def check_pet():
     section("Pet")
     from .paths import data_dir
-    from .streams import channel_name
+    from .streams import channel_file, published_channel
     line(OK, f"Datenordner: {data_dir()}")
     log = data_dir("pet.log")
     if os.path.exists(log):
@@ -75,13 +75,17 @@ def check_pet():
     else:
         line(WARN, "noch kein Log – lief das Pet schon einmal?")
     from PyQt6.QtNetwork import QLocalSocket
+    ch = published_channel()
+    if not ch:
+        line(FAIL, f"kein Kanal veröffentlicht ({channel_file()}) – läuft das Pet?")
+        return
     sock = QLocalSocket()
-    sock.connectToServer(channel_name())
+    sock.connectToServer(ch)
     if sock.waitForConnected(800):
-        line(OK, f"Pet läuft, Kanal für VS Code/Cursor offen ({channel_name()})")
+        line(OK, "Pet läuft, Kanal für VS Code/Cursor offen")
         sock.disconnectFromServer()
     else:
-        line(FAIL, f"Kanal nicht erreichbar ({channel_name()}) – läuft das Pet?")
+        line(FAIL, "Kanal veröffentlicht, aber nicht erreichbar – Pet abgestürzt? Neu starten.")
 
 
 def check_extension():

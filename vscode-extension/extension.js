@@ -10,15 +10,32 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
+const fs = require('fs');
+
 const RING_CHARS = 256 * 1024;      // so viel Ausgabe je Terminal wird für ein (später) startendes Pet gehalten
 const RETRY_MS = 3000;
 const CLAUDE = /(^|[\s"'\/\\&;|])claude(-code)?(\.exe|\.cmd|\.ps1)?(?=$|[\s"';|&])/i;
 const TITLE = /\x1b\][02];([^\x07\x1b]*)(?:\x07|\x1b\\)/g;
 
+// Datenordner des Pets (nur für den eigenen Benutzer lesbar)
+function dataDir() {
+  if (process.platform === 'win32') {
+    return path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'claude-pet');
+  }
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'claude-pet');
+  return path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'claude-pet');
+}
+
+// Das Pet würfelt bei jedem Start einen Kanalnamen und legt ihn im Datenordner ab. Nur einem Kanal
+// vertrauen, der dort steht und die erwartete Form hat – sonst nichts senden.
 function channel() {
-  const user = (os.userInfo().username || 'user').replace(/[^A-Za-z0-9_.-]/g, '_');
-  const name = `claude-pet-${user}`;
-  return process.platform === 'win32' ? `\\\\.\\pipe\\${name}` : path.join(os.tmpdir(), name);
+  let ch;
+  try { ch = fs.readFileSync(path.join(dataDir(), 'channel'), 'utf8').trim(); } catch (e) { return null; }
+  if (process.platform === 'win32') {
+    return /^\\\\\.\\pipe\\claude-pet-[A-Za-z0-9_.-]+-[0-9a-f]{16}$/.test(ch) ? ch : null;
+  }
+  const dir = dataDir() + path.sep;
+  return ch.startsWith(dir) && /^ch-[0-9a-f]{16}\.sock$/.test(ch.slice(dir.length)) ? ch : null;
 }
 
 let sock = null;
@@ -60,7 +77,9 @@ function replay() {
 
 function connect() {
   if (disposed || sock) return;
-  const s = net.connect(channel());
+  const ch = channel();
+  if (!ch) { setTimeout(connect, RETRY_MS); return; }      // Pet läuft (noch) nicht
+  const s = net.connect(ch);
   sock = s;
   s.on('connect', () => { alive = true; hello(); replay(); });
   s.on('error', () => { /* Pet läuft nicht – später nochmal */ });

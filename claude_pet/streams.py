@@ -10,33 +10,59 @@ Windows, Unix-Socket auf dem Mac – und schickt zeilenweise JSON:
     {"type": "active", "term": "t1"}          # aktives Terminal des Fensters (oder null)
     {"type": "closed", "term": "t1"}          # Terminal geschlossen
 
-Nichts davon wird gespeichert; der Kanal ist nur für den eigenen Benutzer erreichbar.
+Nichts davon wird gespeichert.
+
+Sicherheit: Der Kanalname wird bei jedem Start zufällig gewählt und nur im privaten Datenordner
+abgelegt (Datei `channel`, dort liest ihn die Erweiterung). Ein anderer Benutzer desselben Rechners kann
+ihn daher weder erraten noch vorher selbst belegen und so die Ausgabe abgreifen. Auf dem Mac liegt der
+Socket selbst im privaten Datenordner. Zusätzlich lässt Qt nur den eigenen Benutzer zu.
 """
 import getpass
 import json
 import logging
 import os
 import re
-import tempfile
+import secrets
 import threading
 import time
 from dataclasses import dataclass, field
 
 from .emulator import TermEmulator
+from .paths import data_dir
 
 log = logging.getLogger(__name__)
 
 MAX_LINE = 4 * 1024 * 1024        # Schutz gegen kaputte Gegenstellen
+MAX_SESSIONS = 64                 # Terminals je Verbindung (Schutz gegen Speicherfresser)
 _SAFE = re.compile(r"[^A-Za-z0-9_.-]")
+_CHANNEL = None
 
 
 def channel_name():
-    """Name des Kanals; die Erweiterung bildet ihn genauso (pro Benutzer)."""
-    user = _SAFE.sub("_", getpass.getuser() or "user")
-    name = f"claude-pet-{user}"
-    if os.name == "nt":
-        return name                                   # -> \\.\pipe\claude-pet-<user>
-    return os.path.join(tempfile.gettempdir(), name)  # $TMPDIR/claude-pet-<user>
+    """Name des Kanals dieses Pet-Laufs (zufällig; Windows: Pipe-Name, Mac: Socket-Pfad)."""
+    global _CHANNEL
+    if _CHANNEL is None:
+        token = secrets.token_hex(8)
+        if os.name == "nt":
+            user = _SAFE.sub("_", getpass.getuser() or "user")
+            _CHANNEL = f"claude-pet-{user}-{token}"          # -> \\.\pipe\claude-pet-<user>-<zufall>
+        else:
+            _CHANNEL = data_dir(f"ch-{token}.sock")           # privater Datenordner
+    return _CHANNEL
+
+
+def channel_file():
+    """Hier steht der volle Kanalname für die Erweiterung."""
+    return data_dir("channel")
+
+
+def published_channel():
+    """Den von einem laufenden Pet veröffentlichten Kanal lesen (Diagnose), oder None."""
+    try:
+        with open(channel_file(), encoding="utf-8") as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
 
 
 @dataclass
@@ -111,6 +137,8 @@ class StreamHub:
     def _session(self, cid, key):
         s = self.sessions.get(key)
         if s is None:
+            if sum(1 for k in self.sessions if k[0] == cid) >= MAX_SESSIONS:
+                raise ValueError("zu viele Terminals auf einer Verbindung")
             c = self.clients.get(cid, {})
             s = Session(key=key, app=c.get("app", ""), workspace=c.get("workspace", ""), emu=TermEmulator())
             self.sessions[key] = s
@@ -138,13 +166,29 @@ class StreamHub:
             return False
         srv.newConnection.connect(self._on_connection)
         self._server = srv
-        log.info("Kanal für VS Code/Cursor: %s", srv.fullServerName())
+        self._published = srv.fullServerName()
+        try:                                          # für die Erweiterung veröffentlichen (privater Ordner)
+            os.makedirs(data_dir(), exist_ok=True)
+            tmp = channel_file() + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(self._published)
+            if os.name != "nt":
+                os.chmod(tmp, 0o600)
+            os.replace(tmp, channel_file())
+        except OSError:
+            log.exception("Kanal konnte nicht veröffentlicht werden")
+        log.info("Kanal für VS Code/Cursor geöffnet")
         return True
 
     def stop(self):
         if self._server is not None:
             self._server.close()
             self._server = None
+            if published_channel() == getattr(self, "_published", None):
+                try:
+                    os.remove(channel_file())
+                except OSError:
+                    pass
 
     def _on_connection(self):
         while self._server is not None and self._server.hasPendingConnections():
@@ -173,8 +217,12 @@ class StreamHub:
                 msg = json.loads(line)
             except ValueError:
                 continue
-            if isinstance(msg, dict):
+            if not isinstance(msg, dict):
+                continue
+            try:
                 self.handle(cid, msg)
+            except Exception as e:                    # eine kaputte Nachricht darf das Pet nicht beenden
+                log.warning("VS-Code-Erweiterung: Nachricht verworfen (%s)", e)
 
     def _on_gone(self, cid):
         entry = self._sockets.pop(cid, None)

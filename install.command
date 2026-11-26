@@ -29,7 +29,7 @@ ok "macOS $VER ($ARCH)"
 # ------------------------------------------------------------------ 2. Claude Code
 step "Claude Code (claude)"
 if command -v claude >/dev/null 2>&1; then
-    ok "gefunden – die Sprechblasen nutzen Haiku über dein Claude-Abo"
+    ok "gefunden – die Sprechblasen nutzen Haiku über dein Claude-Abo bzw. deinen API-Key"
 else
     warn "claude ist nicht im PATH. Das Pet läuft trotzdem, sagt dann aber nur vorgefertigte Sprüche."
 fi

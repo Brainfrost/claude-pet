@@ -11,7 +11,7 @@ was Claude gerade macht, und holt dich, wenn eine Session fertig ist.
 - Windows 10/11
 - **Windows Terminal** (gern mehrere Sessions als Tabs) **oder VS Code / Cursor** mit Claude Code im
   eingebauten Terminal
-- **Claude Code** (`claude` im PATH): Damit denkt sich das Pet über **Haiku** und dein Claude-Abo
+- **Claude Code** (`claude` im PATH): Damit denkt sich das Pet über **Haiku** und dein Claude-Abo (oder deinen API-Key)
   Sprüche aus. Ohne `claude` läuft es auch, sagt dann aber nur vorgefertigte Sprüche.
 - Python 3.11 oder neuer. Fehlt es, bietet der Installer an, Python 3.12 per `winget` für deinen
   Benutzer zu installieren.
@@ -116,7 +116,7 @@ Terminal genauso.
   Dein **Eingabefeld liest es nie mit**. In VS Code/Cursor bekommt es die Ausgabe von `claude` von der
   Erweiterung (lokal, nichts wird gespeichert).
 - Für Sprechblasen schickt es einen **kurzen Ausschnitt** des sichtbaren Texts an **Haiku**, über
-  `claude -p` mit deinem eigenen Abo. **Tokens, Passwörter, lange Schlüssel und E-Mail-Adressen werden
+  `claude -p` mit deinem eigenen Abo bzw. API-Key. **Tokens, Passwörter, lange Schlüssel und E-Mail-Adressen werden
   vorher maskiert.** Der Aufruf läuft ohne deine Claude-Einstellungen, ohne Hooks, Tools oder MCP und
   ohne gespeicherte Session. Wie oft das passiert, bestimmst du über *Einstellungen → Redefreude*
   („Aus“ heißt: nur auf Wunsch). Dazu kommen ein Aufruf pro Tag fürs Tagebuch (nur Zähler wie
