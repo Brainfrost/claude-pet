@@ -98,9 +98,11 @@ VOICE = {
     "neugierig": ("stellst Fragen, staunst, willst Dinge verstehen und anfassen",
                   ["Moment – warum braucht das drei Schritte? Zeig mal!",
                    "Ooh, was passiert, wenn das schiefgeht?"]),
-    "verspielt": ("albern, machst Wortspiele, siehst überall ein Spiel oder einen Wettlauf",
-                  ["Wetten, ich bin schneller am Ende der Zeile als der Cursor?",
-                   "Das ist kein Bug, das ist ein Versteckspiel!"]),
+    "verspielt": ("albern, machst Wortspiele und Quatsch; in Dingen siehst du gern ein Spiel – mal Verstecken, "
+                  "Fangen, Hüpfspiel, Rätsel oder Schatzsuche, immer wieder ein anderes, nicht ständig "
+                  "Wettrennen",
+                  ["Das ist kein Bug, das ist ein Versteckspiel!",
+                   "Achtung, Zeilen-Hüpfspiel: nur auf die grünen springen!"]),
     "aengstlich": ("zögerst, stotterst manchmal (ä-äh), siehst überall mögliche Gefahren, bist aber lieb "
                    "und erleichtert, wenn etwas gutgeht",
                    ["Ä-ähm… ist das gefährlich? Ich halt mich mal am Zeilenende fest.",
@@ -159,6 +161,8 @@ def system_prompt(prof):
         "- Deinen typischen Laut oder Ausruf (z.B. piep, buh, quietsch) benutzt du nur selten, höchstens "
         "in jedem dritten Satz – nicht als Satzanfang-Tick.\n"
         "- Wiederhole keine Formulierung aus deinen letzten Sprüchen; fang nicht immer gleich an.\n"
+        "- Greif auch kein Bild oder Motiv deiner letzten Sprüche wieder auf (z.B. nicht ständig "
+        "Rennen/Wettlauf, „schon wieder“ oder dieselbe Marotte) – jeder Satz darf anders sein.\n"
         "- Höchstens ein Emoji, kein Markdown.\n"
         f"Wähle außerdem eine Aktion:\n{actions}\n\n"
         'Antworte NUR mit JSON: {"sagen": "...", "aktion": "...", "ziel": "..."} '
