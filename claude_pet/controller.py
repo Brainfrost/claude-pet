@@ -926,11 +926,7 @@ class Controller:
         Terminal, darin per Bildanalyse eine Kante."""
         pet = self.pet
         pet.want_adventure = False
-        term = self.world.snap.win_rect if self.world.ok else None
-
-        def in_term(x, y):
-            return term and term[0] <= x < term[2] and term[1] <= y < term[3]
-
+        in_term = self.world.in_terminal            # in VS Code nur die Terminal-Flächen, nicht der Editor
         spots = []
         for scr in QGuiApplication.screens():
             g = scr.availableGeometry()
@@ -945,12 +941,7 @@ class Controller:
 
     def on_vision(self, tag, info, rect, runs):
         """Ergebnis einer Bildanalyse aus dem Hintergrund-Thread."""
-        term = self.world.snap.win_rect if self.world.ok else None
-
-        def in_term(x, y):
-            return term and term[0] <= x < term[2] and term[1] <= y < term[3]
-
-        runs = [r for r in runs if not in_term((r[1] + r[2]) / 2, r[0])]
+        runs = [r for r in runs if not self.world.in_terminal((r[1] + r[2]) / 2, r[0])]
         pet = self.pet
         if tag == "near":
             if pet.pane is None:                    # inzwischen wieder im Terminal: verwerfen

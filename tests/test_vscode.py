@@ -295,3 +295,22 @@ def test_kanal_zufaellig_und_robust(monkeypatch):
     with pytest.raises(ValueError):
         hub.handle(1, {"type": "data", "term": "einer-zu-viel", "d": "x"})
     assert len(hub.sessions) == streams.MAX_SESSIONS
+
+
+def test_codezeilen_im_editor_bleiben_ebenen():
+    """Regression: Mit VS Code als Terminal-Programm wurde das ganze Fenster als Terminal behandelt –
+    die Codezeilen im Editor (Bildanalyse-Kanten) waren keine Ebenen mehr."""
+    from claude_pet.world import ROW_VISION, World
+    from conftest import make_snapshot
+    snap = make_snapshot(["claude"], top=600, rows=10)          # Terminal-Fläche unten im Fenster
+    snap.win_rect = (0, 0, 1400, 900)                           # ganzes Editor-Fenster
+    snap.host = "vscode"
+    w = World()
+    w.update(snap)
+    editor, terminal = (200, 100, 600), (700, 100, 600)         # (y, x0, x1)
+    w.set_vision([editor, terminal])
+    assert [p.y for p in w.platforms if p.row == ROW_VISION] == [200]
+    assert not w.in_terminal(300, 200) and w.in_terminal(300, 700)
+    snap.host = "wt"                                            # Windows Terminal: ganzes Fenster ist Terminal
+    w.set_vision([editor, terminal])
+    assert not [p for p in w.platforms if p.row == ROW_VISION]

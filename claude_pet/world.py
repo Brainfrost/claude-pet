@@ -109,13 +109,25 @@ class World:
     def _combine(self):
         self.platforms = self.term_platforms + self.win_platforms + self.vis_platforms
 
+    def terminal_areas(self):
+        """Wo die genaue Textwelt des Terminals gilt: beim Windows Terminal das ganze Fenster, in
+        VS Code/Cursor nur die Terminal-Flächen – Editor (Code), Seitenleiste usw. sind dort ganz
+        normale Fensterinhalte, auf denen die Bildanalyse Ebenen findet."""
+        if not self.ok:
+            return []
+        if self.snap.host == "vscode":
+            return [p.rect for p in self.snap.panes]
+        return [self.snap.win_rect] if self.snap.win_rect else []
+
+    def in_terminal(self, x, y):
+        return any(l <= x < r and t <= y < b for l, t, r, b in self.terminal_areas())
+
     def set_vision(self, runs):
         """Per Bildanalyse erkannte Kanten [(y, x0, x1)] übernehmen; im sichtbaren Terminal gilt
         dessen genaue Textwelt, dort werden sie verworfen."""
-        term = self.snap.win_rect if self.ok else None
         plats = []
         for y, a, b in runs:
-            if term and term[0] <= (a + b) / 2 < term[2] and term[1] <= y < term[3]:
+            if self.in_terminal((a + b) / 2, y):
                 continue
             plats.append(Platform(float(a), float(b), float(y), -1, ROW_VISION, "v"))
         self.vis_platforms = plats
