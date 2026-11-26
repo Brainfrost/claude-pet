@@ -259,6 +259,7 @@ class Controller:
         """Ball ab Mauszeiger in die Welt werfen."""
         x, y = osapi.cursor_pos()
         self.ball = Ball(x, y - 30, random.uniform(-700, 700), random.uniform(-900, -400), self.pet.line_h)
+        self.ball.screens = self.pet.screens
         self.brain.ball = self.ball
         self.diary.count("balls")
         self.ball_win.place(self.ball)
@@ -770,6 +771,39 @@ class Controller:
         return scr or min(QGuiApplication.screens(), key=lambda s: abs(s.geometry().center().x() - x))
 
     @staticmethod
+    def screen_rects():
+        """Jeder Bildschirm einzeln (l, t, r, b) – das Rechteck um alle hätte Lücken."""
+        out = []
+        for s in QGuiApplication.screens():
+            g = s.geometry()
+            out.append((g.x(), g.y(), g.x() + g.width(), g.y() + g.height()))
+        return out
+
+    def _track_stroke(self, cursor, now):
+        """Streicheln = mit der Maus über dem Pet hin und her fahren (4 Richtungswechsel in 1,5 s).
+        Über die echte Mausposition statt über Mausereignisse des kleinen Pet-Fensters: die gingen
+        verloren, sobald die Maus beim Hin-und-her über den Rand des Pets hinausfuhr."""
+        pet = self.pet
+        x, y = cursor
+        near = (pet.placed and pet.state not in ("held", "hidden") and self.win.isVisible()
+                and abs(x - pet.x) <= pet.W * 1.1 and pet.y - pet.H * 1.4 <= y <= pet.y + pet.H * 0.3)
+        last = getattr(self, "_stroke_last", None)
+        if not near:
+            self._stroke_last, self._stroke_dir = None, 0
+            return
+        if last is not None:
+            d = 1 if x > last + 1 else -1 if x < last - 1 else 0
+            if d and d != getattr(self, "_stroke_dir", 0):
+                if getattr(self, "_stroke_dir", 0):
+                    flips = [t for t in getattr(self, "_stroke_flips", []) if now - t < 1.5] + [now]
+                    if len(flips) >= 4:
+                        flips = []
+                        self.on_stroke()
+                    self._stroke_flips = flips
+                self._stroke_dir = d
+        self._stroke_last = x
+
+    @staticmethod
     def vbounds():
         g = QGuiApplication.primaryScreen().virtualGeometry()
         return g.x(), g.y(), g.x() + g.width(), g.y() + g.height()
@@ -801,6 +835,12 @@ class Controller:
             return
         if pet.state in ("idle", "sit", "happy", "talk") and abs(cursor[0] - pet.x) > pet.W * 1.5:
             pet.facing = 1 if cursor[0] > pet.x else -1          # schaut zu dir
+        if now - getattr(self, "_screens_t", -9.0) > 2.0:        # Monitore an-/abgesteckt?
+            self._screens_t = now
+            pet.screens = self.screen_rects()
+            if self.ball is not None:
+                self.ball.screens = pet.screens
+        self._track_stroke(cursor, now)
         self._update_surroundings(now)
         growth.drift(self.prof, dt)
         pet.mood, pet.bond = self.prof["mood"], self.prof["bond"]

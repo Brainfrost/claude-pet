@@ -7,7 +7,8 @@ import math
 import random
 
 from .creatures import STAGE_PX
-from .world import OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_VISION, ROW_WINDOW, Platform
+from .world import (OUTSIDE_ROWS, ROW_FLOOR, ROW_SCREEN, ROW_VISION, ROW_WINDOW, Platform, keep_on_screens,
+                    screen_span)
 
 GROUND = {"idle", "walk", "sit", "sleep", "happy", "eat", "talk"}
 AIR = {"fall", "jump"}
@@ -80,6 +81,7 @@ class Pet:
         self.daypart = "tag"        # morgen | tag | abend | nacht (setzt der Controller)
         self.carrying = False       # trägt gerade den Ball im Maul
         self.napping = False        # hält gerade ein richtiges Nickerchen (brain.py: Schlafplatz gesucht)
+        self.screens = []           # echte Bildschirm-Rechtecke (vom Controller); leer = nur vbounds
         self.energy = 100.0         # 0..100 – sinkt durch Toben, steigt durch Sitzen/Schlafen
         self.grace = START_GRACE    # s nach dem Start: Einzug (Fallen, Heimspringen) kostet nichts
         self.effort = 1.0           # Faktor für den Energieverbrauch (Bug-Jagd: Spiel strengt weniger an)
@@ -631,6 +633,12 @@ class Pet:
         if ny - self.H < t:
             ny = t + self.H
             self.vy = abs(self.vy) * 0.2
+        if self.screens:                                  # keine Lücken zwischen den Bildschirmen
+            nx, ny, side, cap = keep_on_screens(self.screens, nx, ny, self.W / 2, self.H)
+            if side:
+                self.vx = -self.vx * 0.5
+            if cap and self.vy < 0:
+                self.vy = abs(self.vy) * 0.2
         if self.vy > 0:
             if self.ignore_y is not None and self.y > self.ignore_y + 3:
                 self.ignore_y = None
@@ -639,7 +647,10 @@ class Pet:
                 p = None                              # noch nicht am Ziel: weiterfallen
             floor = screen_floor(nx)
             if p is None and ny >= floor:
-                p = Platform(nx - 10 ** 6, nx + 10 ** 6, floor, -1, ROW_SCREEN)
+                # Boden nur so breit wie der Bildschirm – sonst läuft es seitlich ins Nichts
+                span = screen_span(self.screens, nx, floor - 1) if self.screens else None
+                x0, x1 = span if span else (nx - 10 ** 6, nx + 10 ** 6)
+                p = Platform(x0, x1, floor, -1, ROW_SCREEN)
             if p is not None:
                 self.x = nx
                 self._land(p)
@@ -709,6 +720,13 @@ class Pet:
                 self.state, self.timer = "idle", random.uniform(*self.traits["idle"])
                 return
             self.x += d * step
+            if self.screens:                              # am Bildschirmrand ohne Nachbarn: stehen bleiben
+                nx, _, side, _ = keep_on_screens(self.screens, self.x, self.y, self.W / 2, self.H)
+                if side:
+                    self.x = self.target_x = nx
+                    self.run = 1.0
+                    self.state, self.timer = "idle", random.uniform(*self.traits["idle"])
+                    return
             if p.covers(self.x, 0):
                 self.edge_done = False
             elif not p.covers(self.x, self.tol):

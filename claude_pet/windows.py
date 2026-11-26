@@ -144,18 +144,7 @@ class PetWindow(QWidget):
                 self._samples = [sm for sm in self._samples if now - sm[0] < 0.1]
                 self.ctl.place()
             return
-        # Streicheln: hin und her über das Pet fahren
-        if self._last_mx is not None:
-            d = 1 if g.x() > self._last_mx + 1 else -1 if g.x() < self._last_mx - 1 else 0
-            if d and d != self._stroke_dir:
-                if self._stroke_dir:
-                    now = time.perf_counter()
-                    self._stroke_flips = [t for t in self._stroke_flips if now - t < 1.5] + [now]
-                    if len(self._stroke_flips) >= 4:
-                        self._stroke_flips = []
-                        self.ctl.on_stroke()
-                self._stroke_dir = d
-        self._last_mx = g.x()
+        # Streicheln erkennt der Controller über die Mausposition (_track_stroke)
 
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.MouseButton.LeftButton or not self._press:

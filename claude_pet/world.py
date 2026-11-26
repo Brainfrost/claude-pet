@@ -59,6 +59,40 @@ def _segments_slow(text, gap):
     return out
 
 
+def _rect_dist(rect, x, y):
+    l, t, r, b = rect
+    dx = max(l - x, 0, x - r)
+    dy = max(t - y, 0, y - b)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def keep_on_screens(screens, x, y, half_w, height):
+    """Bildschirme sind einzelne Rechtecke – das Rechteck um alle (virtuelle Fläche) hat bei
+    unterschiedlich hohen bzw. hochkant gestellten Monitoren Lücken, in denen nichts zu sehen ist.
+    Steht/fliegt etwas (x = Mitte, y = Unterkante, height hoch) in so einer Lücke, wird es auf den
+    nächsten echten Bildschirm zurückgeholt. -> (x, y, an_seitenwand, an_decke_oder_boden)"""
+    if not screens:
+        return x, y, False, False
+    top = y - height                                   # der Kopf muss auf einem Bildschirm sein
+    if any(l + half_w <= x <= r - half_w and t <= top < b for l, t, r, b in screens) \
+            or any(l <= x - half_w and x + half_w <= r2 and t <= top < b and t2 <= top < b2
+                   for l, t, r, b in screens for l2, t2, r2, b2 in screens if r == l2):
+        return x, y, False, False                      # (auch über die Grenze zweier Nachbarn hinweg)
+    l, t, r, b = min(screens, key=lambda s: _rect_dist(s, x, top))
+    nx = min(max(x, l + half_w), r - half_w)
+    ny = min(max(y, t + height), b)
+    return nx, ny, nx != x, ny != y
+
+
+def screen_span(screens, x, y):
+    """Waagrechte Ausdehnung (links, rechts) des Bildschirms unter (x, y) – für den Boden."""
+    hits = [s for s in screens if s[0] <= x < s[2]]
+    if not hits:
+        return None
+    l, t, r, b = min(hits, key=lambda s: _rect_dist(s, x, y))
+    return l, r
+
+
 class World:
     def __init__(self):
         self.snap = None

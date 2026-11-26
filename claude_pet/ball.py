@@ -1,5 +1,5 @@
 """Ein Ball zum Spielen: hüpft über Textzeilen, Fensterkanten und erkannte Ebenen, rollt über Kanten."""
-from .world import ROW_SCREEN, Platform
+from .world import ROW_SCREEN, Platform, keep_on_screens, screen_span
 
 
 class Ball:
@@ -13,6 +13,7 @@ class Ball:
         self.support = None
         self.idle_t = 0.0                         # wie lange er schon still liegt
         self.angle = 0.0
+        self.screens = []                         # echte Bildschirme (Controller); leer = nur vbounds
 
     @property
     def bottom(self):
@@ -45,11 +46,20 @@ class Ball:
         if ny - self.r < t:
             ny = t + self.r
             self.vy = abs(self.vy) * 0.5
+        if self.screens:                                  # keine Lücken zwischen den Bildschirmen
+            nx, nb, side, cap = keep_on_screens(self.screens, nx, ny + self.r, self.r, 2 * self.r)
+            ny = nb - self.r
+            if side:
+                self.vx = -self.vx * 0.7
+            if cap and self.vy < 0:
+                self.vy = abs(self.vy) * 0.5
         if self.vy > 0:
             p = world.landing(nx, self.bottom, ny + self.r, 0.0)
             floor = screen_floor(nx)
             if p is None and ny + self.r >= floor:
-                p = Platform(nx - 10 ** 6, nx + 10 ** 6, floor, -1, ROW_SCREEN)
+                span = screen_span(self.screens, nx, floor - 1) if self.screens else None
+                x0, x1 = span if span else (nx - 10 ** 6, nx + 10 ** 6)
+                p = Platform(x0, x1, floor, -1, ROW_SCREEN)
             if p is not None:
                 self.x, self.y = nx, p.y - self.r
                 if self.vy > 260 * self.S:            # aufprallen und zurückspringen

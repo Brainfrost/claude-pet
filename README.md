@@ -91,7 +91,7 @@ xterm.js zeichnet auf ein Canvas, UIA sieht dort keinen Text. Deshalb:
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 121 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 126 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 
