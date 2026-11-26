@@ -198,6 +198,8 @@ LINE_KINDS = {
     "evening": "es ist Feierabend",
     "weekend": "Freitagnachmittag, das Wochenende naht",
     "push": "dein Mensch hat Code hochgeladen (push)",
+    "tired": "du bist müde und suchst dir einen ruhigen Platz zum Schlafen",
+    "rested": "du bist ausgeschlafen und wieder fit",
 }
 
 

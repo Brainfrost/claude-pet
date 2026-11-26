@@ -110,7 +110,10 @@ Terminal genauso.
 - **Bote:** Ist eine längere Claude-Antwort fertig und du schaust gerade woanders hin, fliegt es zu
   deinem Mauszeiger und sagt dir Bescheid.
 - **Frisst Wörter** wie bug, TODO, error, und seltene wie deadlock oder heisenbug.
-- **Wird müde** vom Toben, schläft und träumt (Gedankenwolke). Abends gähnt es, nachts schläft es.
+- **Wird müde** vom Toben. Bei wenig Energie sagt es Bescheid und sucht sich einen ruhigen
+  Schlafplatz: einen ungenutzten Tab (nie den, in dem Claude gerade arbeitet) oder eine stille Stelle
+  weit weg von deiner Maus. Dort schläft es, bis es ausgeschlafen ist, und kommt dann von selbst
+  zurück. Weckst du es, lässt es sich eine Weile in Ruhe. Abends gähnt es, nachts schläft es.
 - **Wächst** mit eurer gemeinsamen Arbeitszeit: nach ca. 20 aktiven Stunden „jung“, nach ca. 120
   „erwachsen“. Je nach Arbeitsart bekommt es Accessoires (Bauhelm, Brille, Lupe).
 - **Tagesmomente:** Mittag, Feierabend, Freitagnachmittag, dazu eine Pausen-Erinnerung nach 2 Stunden am Stück.

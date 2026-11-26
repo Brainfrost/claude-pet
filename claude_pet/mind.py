@@ -18,6 +18,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from . import daily, personas, profile
+from .pet import TIRED
 from .speech import context_from, mask
 
 log = logging.getLogger(__name__)
@@ -213,6 +214,8 @@ class Mind:
         ctl = self.ctl
         if self.pending or ctl.quiet_reason or not ctl.speech.exe or not ctl.pet.placed:
             return
+        if getattr(ctl.brain, "nap", None) is not None:
+            return                                    # schläft gerade: nichts planen
         has_plan = self.step is not None or bool(self.plan)
         reason = due(self.level, now, self.last_plan, self.started_at, has_plan,
                      daily.idle_seconds(), self.urgent, self.history)
@@ -338,6 +341,9 @@ class Mind:
             pet.state, pet.timer = "sit", st.dauer
             return True
         if v == "schlafen":
+            if pet.energy < TIRED and brain.start_nap(world):
+                st.left = 0.01                        # richtiges Nickerchen am ruhigen Platz (brain.py)
+                return True
             pet.perform("einschlafen")
             if pet.state == "sleep":
                 pet.timer = st.dauer

@@ -91,7 +91,7 @@ xterm.js zeichnet auf ein Canvas, UIA sieht dort keinen Text. Deshalb:
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 117 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 121 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 
@@ -184,7 +184,9 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
 - **Energie** (0–100): Laufen, Springen, Ballspielen, Ausflüge und Wachsein kosten Energie; Sitzen,
   Schlafen und Verstecken im Tab laden auf (abends/nachts wird man schneller müde). Unter 40 ist das Pet
   müde: langsamer, kaum Sprünge, setzt sich öfter, gähnt, jagt keinen Ball, schaut bei der Maus nur hin.
-  Fast leer -> Nickerchen, bis es wieder fit ist. Verspielte toben ~½ Stunde, bevor sie müde werden.
+  Unter 25 sagt es Bescheid und sucht sich einen Schlafplatz (freier Tab ohne arbeitendes Claude, sonst
+  eine stille Stelle weit weg von Maus und neuester Ausgabe), schläft bis 85 und kommt dann zurück;
+  geweckt -> 90 s Ruhe. Die ersten 15 s nach dem Start kosten keine Energie. Verspielte toben ~½ Stunde, bevor sie müde werden.
   Die Energie wird gespeichert; Zeit, in der das Pet aus ist, gilt als Erholung.
 - **Stimmung** (0–100): Erfolge und Streicheln heben, Fehler und Werfen senken; pendelt sich bei 60 ein.
   Schlechte Laune → sitzt mehr herum; gute Laune → springt mehr. Fließt auch in Haikus Sprüche ein.

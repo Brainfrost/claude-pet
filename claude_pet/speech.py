@@ -146,6 +146,18 @@ CANNED = {
         "verspielt": ["Pause! Pause! {hours} durchgearbeitet – Zeit zum Spielen!", "{hours} geschafft! Jetzt eine Runde Pause!"],
         "aengstlich": ["Ähm… {hours} ohne Pause? Bitte trink was, ja?", "Du arbeitest schon {hours}… mach doch kurz Pause."],
     },
+    "tired": {
+        "faul": ["Gähn… ich such mir ein ruhiges Plätzchen.", "So. Genug für heute. Bis später."],
+        "neugierig": ["Ich bin so müde… ich ruh mich kurz aus.", "Augen fallen zu… nur ein kleines Nickerchen!"],
+        "verspielt": ["Akku leer! Ich verkriech mich kurz und tank auf.", "Puh, ausgetobt. Kurzes Nickerchen!"],
+        "aengstlich": ["Ich bin müde… ich such mir eine stille Ecke.", "Darf ich mich kurz ausruhen? Ganz leise."],
+    },
+    "rested": {
+        "faul": ["Mh. Ausgeschlafen. Fast.", "Bin wieder da. Langsam."],
+        "neugierig": ["Ausgeschlafen! Was hab ich verpasst?", "Wieder fit! Zeig mal, was du gemacht hast."],
+        "verspielt": ["Akku voll! Wer spielt mit mir?", "Ausgeschlafen und bereit für Quatsch!"],
+        "aengstlich": ["Ich bin wieder da… war alles ruhig?", "Ausgeruht. Ich bleib jetzt in deiner Nähe."],
+    },
     "welcome": {
         "faul": ["Ah, wieder da.", "Ich hab nichts gemacht, während du weg warst."],
         "neugierig": ["Da bist du ja wieder!", "Wieder da! Was hast du gemacht?"],

@@ -20,6 +20,7 @@ ENERGY = {"faul": (1.6, 1.2), "neugierig": (1.0, 1.0), "verspielt": (1.0, 0.9), 
 REGEN = {"sit": 0.3, "sleep": 0.8, "hidden": 0.5, "eat": 0.1}
 AWAKE_DRAIN = 0.04      # wach sein macht langsam müde (pro Sekunde, außer beim Sitzen/Schlafen)
 TIRED, EXHAUSTED = 40.0, 12.0
+START_GRACE = 15.0      # s: so lange nach dem Start kostet Bewegung keine Energie (sonst macht jeder Neustart müde)
 CROUCH_T, HANG_T, CLIMB_T = 0.22, 0.35, 0.40
 
 # Wie sich die Charaktere bewegen
@@ -78,7 +79,9 @@ class Pet:
         self.vision_grace = 0       # Bildanalyse hat die Kante kurz verloren: so oft noch tolerieren
         self.daypart = "tag"        # morgen | tag | abend | nacht (setzt der Controller)
         self.carrying = False       # trägt gerade den Ball im Maul
+        self.napping = False        # hält gerade ein richtiges Nickerchen (brain.py: Schlafplatz gesucht)
         self.energy = 100.0         # 0..100 – sinkt durch Toben, steigt durch Sitzen/Schlafen
+        self.grace = START_GRACE    # s nach dem Start: Einzug (Fallen, Heimspringen) kostet nichts
         self.effort = 1.0           # Faktor für den Energieverbrauch (Bug-Jagd: Spiel strengt weniger an)
         self.set_scale(24)
 
@@ -318,6 +321,8 @@ class Pet:
         return self.energy < TIRED
 
     def _spend(self, amount):
+        if self.grace > 0:
+            return                              # Einzug nach dem Start ist gratis
         cost = ENERGY.get(self.personality, (1.0, 1.0))[0]
         if self.daypart == "abend":
             cost *= 1.2
@@ -328,7 +333,8 @@ class Pet:
     def _recover(self, dt, state):
         if state not in REGEN and state != "held":
             self._spend(dt * AWAKE_DRAIN)
-        rate = REGEN.get(state, 0.0) * ENERGY.get(self.personality, (1.0, 1.0))[1]
+        base = REGEN["sleep"] if (state == "hidden" and self.napping) else REGEN.get(state, 0.0)
+        rate = base * ENERGY.get(self.personality, (1.0, 1.0))[1]       # im Tab verkrochen = Schlaf
         if self.daypart in ("abend", "nacht"):
             rate *= 0.8
         if rate:
@@ -526,6 +532,7 @@ class Pet:
     # ------------------------------------------------------------ Simulation
     def step(self, dt, world, screen_floor, vbounds, cursor):
         self.anim_t += dt
+        self.grace = max(0.0, self.grace - dt)
         self.squash = max(0.0, self.squash - dt * 4)
         self._tick_effects(dt)
         self._tick_blink(dt)

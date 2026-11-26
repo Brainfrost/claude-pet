@@ -22,6 +22,11 @@ SATED = {"verspielt": (360, 600), "neugierig": (480, 720), "aengstlich": (720, 1
 GOAL_TIMEOUT = 25.0
 MAX_GOAL_JUMPS = 4      # so viele Sprünge ohne Erfolg, dann gibt es auf
 
+NAP_AT = 25.0           # Energie: darunter sagt es Bescheid und sucht sich einen ruhigen Schlafplatz
+WAKE_AT = 85.0          # ausgeschlafen
+NAP_RETRY = 90.0        # s: geweckt -> frühestens dann wieder einen Schlafplatz suchen
+NAP_GO_MAX = 20.0       # s: so lange darf die Suche nach dem Schlafplatz dauern, sonst schläft es, wo es ist
+
 DECIDE_EVERY = {
     "faul": (60, 150),
     "neugierig": (25, 60),
@@ -56,6 +61,10 @@ class Brain:
         self.eat_t = random.uniform(*EAT_EVERY.get(personality, (40, 90))) * 0.5
         self.food_urge = False         # neues Futter im Text gesehen -> bald essen gehen
         self.mind = None               # mind.Mind: von Haiku geplante Schritte (vom Controller gesetzt)
+        self.nap = None                # Nickerchen: {"mode": "tab"|"spot"|"here", "phase": "go"|"sleep", …}
+        self.nap_block_until = 0.0     # nach dem Wecken eine Weile keinen Schlafplatz suchen
+        self.on_nap = None             # Callback(kind): "tired" beim Hinlegen, "rested" beim Aufwachen
+        self._clock = 0.0
         self.news = False              # neuer Text erschienen (für die Neugier)
         self.sated_t = 0.0             # so lange (s) ist es noch satt
         self.on_ate = None             # Callback(word, platform, start) – Biss anzeigen, zählen
@@ -206,6 +215,8 @@ class Brain:
             if self.cling_t <= 0:
                 pet.uncling()
             return
+        if self._nap_tick(dt, world):
+            return
         if self.goal:
             self.goal_t += dt
             if self.goal_t > GOAL_TIMEOUT:            # aufgeben, nicht ewig hinterherjagen
@@ -233,6 +244,127 @@ class Brain:
 
     def set_goal(self, goal):
         self.goal, self.goal_t, self.goal_jumps, self._goal_best = goal, 0.0, 0, None
+
+    # ------------------------------------------------------------ Nickerchen
+    def _nap_tick(self, dt, world):
+        """Müde (Energie < NAP_AT): Bescheid sagen, ruhigen Schlafplatz suchen (freier Tab, sonst eine
+        stille Stelle weit weg von Maus und neuester Ausgabe), schlafen bis WAKE_AT, dann wieder
+        auftauchen. True = das Nickerchen hat gerade die Kontrolle."""
+        self._clock += dt
+        pet, nap = self.pet, self.nap
+        if nap is None:
+            if (pet.energy < NAP_AT and self._clock >= self.nap_block_until and pet.placed and pet.grounded
+                    and not pet.busy and self.goal is None and pet.state in ("idle", "walk", "sit", "happy")):
+                self.start_nap(world)
+            return False
+        if nap["phase"] == "go":
+            nap["t"] += dt
+            if nap["mode"] == "tab":
+                if pet.state == "hidden":
+                    nap["phase"], pet.napping = "sleep", True
+                    log.info("Nickerchen im Tab (Energie %.0f)", pet.energy)
+                    return True
+                if nap["t"] > 8 and self.goal is None and pet.state not in TRANSITION:
+                    self._sleep_here()                 # kam nicht in den Tab: dann eben hier
+                    return True
+                return self.goal is None               # Ziel "enter" -> Brain klettert; danach nichts dazwischen
+            if pet.state in AIR or pet.state in TRANSITION or not pet.grounded:
+                return True
+            tx, ty = nap["target"]
+            if nap["t"] > NAP_GO_MAX or (abs(pet.y - ty) < 3 and abs(pet.x - tx) < pet.W * 0.6):
+                self._sleep_here()
+            else:
+                self._move_to(world, tx, ty, run=0.9)
+            return True
+        # schläft
+        if pet.energy >= WAKE_AT:
+            self._wake(world)
+            return False
+        if nap["mode"] == "tab":
+            if pet.state != "hidden":                 # du hast den Tab geöffnet oder es geholt
+                self._end_nap()
+                return False
+            return True
+        if pet.state != "sleep":                       # angestupst, hochgehoben, heruntergefallen …
+            self._end_nap()
+            return False
+        pet.timer = max(pet.timer, 5.0)               # weiterschlafen, bis es ausgeschlafen ist
+        return True
+
+    def start_nap(self, world):
+        """Schlafplatz suchen und hinlegen (auch vom Hirn aufgerufen, wenn es müde „schlafen“ plant)."""
+        pet = self.pet
+        if self.nap is not None or pet.state in ("hidden", "held", "cling"):
+            return False
+        if self.on_nap:
+            self.on_nap("tired")
+        idle = ([i for i, t in enumerate(world.snap.tabs) if t.state != "working" and not t.selected]
+                if world.ok and pet.pane is not None else [])
+        if idle:
+            self.set_goal(("enter", self._ref(world, random.choice(idle))))
+            self.nap = {"mode": "tab", "phase": "go", "t": 0.0}
+            return True
+        spot = self._quiet_spot(world)
+        if spot is not None:
+            self.goal = None
+            self.nap = {"mode": "spot", "phase": "go", "t": 0.0, "target": spot}
+            return True
+        self._sleep_here()
+        return True
+
+    def _quiet_spot(self, world):
+        """Stille Stelle im eigenen Terminal: weit weg von der Maus und von der neuesten Ausgabe."""
+        pet = self.pet
+        if pet.pane is None or not world.ok:
+            return None
+        r = world.pane_rect(pet.pane)
+        cands = [q for q in world.term_platforms
+                 if q.pane == pet.pane and q.row >= 0 and q.x1 - q.x0 > pet.W * 1.2
+                 and not (r and q.y - pet.H * 1.3 < r[1])]
+        if not cands:
+            return None
+        newest = max(q.row for q in cands)
+        calm = [q for q in cands if q.row < newest - 3] or cands
+        cx, cy = self.cursor if self.cursor else (pet.x, pet.y)
+
+        def quiet(q):
+            mx = (q.x0 + q.x1) / 2
+            return ((mx - cx) ** 2 + (q.y - cy) ** 2) ** 0.5 + (newest - q.row) * pet.line_h * 0.5
+
+        q = max(calm, key=quiet)
+        x = min(max((q.x0 + q.x1) / 2, q.x0 + pet.px), q.x1 - pet.px)
+        return x, q.y
+
+    def _sleep_here(self):
+        pet = self.pet
+        pet.state, pet.timer, pet.busy, pet.napping = "sleep", 600.0, False, True
+        pet._effect("gähn", life=1.8)
+        mode = self.nap["mode"] if self.nap else "here"
+        self.nap = {"mode": "here" if mode == "tab" else mode, "phase": "sleep", "t": 0.0}
+        self.goal = None
+        log.info("Nickerchen (Energie %.0f)", pet.energy)
+
+    def _wake(self, world):
+        pet, mode = self.pet, self.nap["mode"]
+        pet.napping = False
+        self.nap = None
+        self.nap_block_until = self._clock + 30.0
+        if mode == "tab" and pet.state == "hidden":
+            a = self._active(world)
+            if a is not None:
+                self.home = self._ref(world, a)       # zurück zu dir in den aktiven Tab
+                self._emerge(world, a)
+        elif pet.state == "sleep":
+            pet.state, pet.timer = "idle", 1.0
+        log.info("Ausgeschlafen (Energie %.0f)", pet.energy)
+        if self.on_nap:
+            self.on_nap("rested")
+
+    def _end_nap(self):
+        """Nickerchen unterbrochen (geweckt): eine Weile in Ruhe lassen, dann ggf. wieder hinlegen."""
+        self.pet.napping = False
+        self.nap = None
+        self.nap_block_until = self._clock + NAP_RETRY
 
     # ------------------------------------------------------------ Ball & Futter
     def _maybe_ball(self, dt):

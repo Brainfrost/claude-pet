@@ -64,6 +64,7 @@ def _world(lines=8):
 def test_jumping_costs_energy_and_rest_restores_it():
     w = _world()
     pet = Pet(creatures.get("schleim"), "jung", "verspielt")
+    pet.grace = 0                                   # ohne Schonzeit nach dem Start
     for _ in range(120):
         pet.on_world(w)
         pet.step(1 / 60, w, floor, VB, (0, 0))
@@ -151,3 +152,21 @@ def test_messenger_pet_flies_to_cursor_and_clings():
         if pet.state == "cling":
             break
     assert pet.state == "cling" and abs(pet.x - cursor[0]) < 1
+
+
+def test_neustart_macht_nicht_muede():
+    """Regression: Nach jedem Start fällt das Pet ins Fenster und springt heim – das kostete bis zu
+    14 Energie. Viele Neustarts (Updates, Tests) machten es dauerhaft müde."""
+    w = _world()
+    pet = Pet(creatures.get("schleim"), "jung", "verspielt")
+    pet.energy = 50.0
+    for _ in range(5):
+        pet._hop(-300)
+        pet.leap_to(pet.x + 400, pet.y)
+    assert pet.energy == 50.0, "Einzug gratis"
+    for _ in range(int(16 * 60)):                    # Schonzeit vorbei
+        pet.on_world(w)
+        pet.step(1 / 60, w, floor, VB, (0, 0))
+    before = pet.energy
+    pet._hop(-300)
+    assert pet.energy < before, "danach kostet Toben wieder"

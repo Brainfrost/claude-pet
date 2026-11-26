@@ -147,6 +147,7 @@ class Controller:
         self.brain.on_catch = self.on_catch
         self.brain.on_fetched = self.on_fetched
         self.brain.mind = self.mind
+        self.brain.on_nap = lambda kind: self.speech.canned(kind, force=True)
         self.brain.ball = getattr(self, "ball", None)
         self.pet.daypart = daily.daypart()
         # Energie: zuletzt gespeicherter Stand, plus Erholung für die Zeit, in der das Pet aus war
