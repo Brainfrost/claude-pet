@@ -79,6 +79,7 @@ class Session:
     title: str = ""                   # letzter Titel laut Erweiterung (falls der Strom ihn nicht enthält)
     started: float = 0.0
     align_pending: bool = True        # neue Ausgabe: Startzeile unbekannt -> am Cursor ausrichten
+    cell_guessed: bool = False        # Zellgröße nur gemerkt (VS Code meldete keine Größe)
     misalign: dict = field(default_factory=dict)
 
     @property
@@ -120,6 +121,17 @@ class StreamHub:
                 s.running, s.started, s.align_pending = True, time.time(), True
                 if msg.get("title"):
                     s.title = str(msg["title"])
+                log.info("VS Code/Cursor: claude %s in Terminal %s (%sx%s)",
+                         "nachgeliefert" if msg.get("replay") else "gestartet", term, cols, rows)
+            elif typ == "dims":
+                # Größe kam später (z.B. zurückgeholtes Terminal nach Reload): jetzt genau kalibrieren
+                s = self.sessions.get(key)
+                d = msg.get("dims") or {}
+                cols, rows = int(d.get("columns") or 0), int(d.get("rows") or 0)
+                if s and cols > 1 and rows > 1 and (s.start_dims is None or s.cell_guessed):
+                    s.start_dims, s.cell = (cols, rows), None
+                    s.emu.resize(cols, rows)
+                    log.info("VS Code/Cursor: Größe von Terminal %s nachgemeldet (%sx%s)", term, cols, rows)
             elif typ == "data":
                 s = self._session(cid, key)
                 s.emu.feed(str(msg.get("d", "")))

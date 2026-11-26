@@ -6,11 +6,14 @@
 - Den Text liefert die Begleit-Erweiterung (streams.py): xterm.js zeichnet auf ein Canvas, UIA sieht
   dort keinen Text.
 """
+import json
 import logging
+import os
 import re
 import time
 
 from . import osapi
+from .paths import data_dir
 from .terminal import Pane, Snapshot, Tab
 
 log = logging.getLogger(__name__)
@@ -79,15 +82,69 @@ def match_sessions(screens, sessions, win_title, single_window):
     return out
 
 
-def calibrate(sess, rect):
+def calibrate(sess, rect, ta_rect=None):
     """Zellgröße aus der Fläche und der Terminalgröße beim Start von claude."""
-    if sess.cell is not None or not sess.start_dims:
+    if sess.cell is not None:
+        return
+    ta_h = (ta_rect[3] - ta_rect[1]) if ta_rect and ta_rect[3] > ta_rect[1] else 0
+    if not sess.start_dims:
+        # VS Code meldet für zurückgeholte Terminals (nach „Reload Window“) keine Größe: dann die zuletzt
+        # gemessene Zellgröße desselben Editors bei gleicher Zeilenhöhe (Schrift/Zoom/Monitor) nehmen
+        hint = cell_hint(sess.app, ta_h)
+        if hint:
+            sess.cell = hint
+            sess.cell_guessed = True
         return
     cols, rows = sess.start_dims
     w, h = rect[2] - rect[0], rect[3] - rect[1]
     cw, ch = w / cols, h / rows
     if 3 <= cw <= 60 and 6 <= ch <= 90:
         sess.cell = (cw, ch)
+        sess.cell_guessed = False
+        if ta_h:
+            remember_cell(sess.app, ta_h, sess.cell)
+
+
+_HINTS = None            # [{"app", "ta_h", "cw", "ch"}] – gemerkte Zellgrößen (Datei zellen.json)
+
+
+def _hints():
+    global _HINTS
+    if _HINTS is None:
+        try:
+            with open(data_dir("zellen.json"), encoding="utf-8") as f:
+                _HINTS = [h for h in json.load(f) if isinstance(h, dict)]
+        except (OSError, ValueError):
+            _HINTS = []
+    return _HINTS
+
+
+def cell_hint(app, ta_h):
+    """Gemerkte Zellgröße für diesen Editor bei dieser Höhe des Eingabefelds (±1 px), sonst None."""
+    if not ta_h:
+        return None
+    best = [h for h in _hints() if h.get("app") == app and abs(h.get("ta_h", 0) - ta_h) <= 1]
+    if not best:
+        return None
+    h = min(best, key=lambda h: abs(h["ta_h"] - ta_h))
+    return (float(h["cw"]), float(h["ch"]))
+
+
+def remember_cell(app, ta_h, cell):
+    hints = _hints()
+    old = next((h for h in hints if h.get("app") == app and h.get("ta_h") == ta_h), None)
+    if old and abs(old["cw"] - cell[0]) < 0.01 and abs(old["ch"] - cell[1]) < 0.01:
+        return
+    if old:
+        hints.remove(old)
+    hints.append({"app": app, "ta_h": ta_h, "cw": round(cell[0], 3), "ch": round(cell[1], 3)})
+    del hints[:-20]
+    try:
+        os.makedirs(data_dir(), exist_ok=True)
+        with open(data_dir("zellen.json"), "w", encoding="utf-8") as f:
+            json.dump(hints, f)
+    except OSError:
+        log.debug("Zellgröße nicht gespeichert", exc_info=True)
 
 
 def align(sess, rect, ta_rect, now):
@@ -119,7 +176,7 @@ def build_pane(rect, sess, ta_rect, now):
     """Pane für eine Textfläche: mit Text, wenn eine kalibrierte Sitzung dazugehört, sonst leer."""
     l, t, r, b = rect
     if sess is not None:
-        calibrate(sess, rect)
+        calibrate(sess, rect, ta_rect)
     if sess is None or sess.cell is None:
         lh = (ta_rect[3] - ta_rect[1]) if ta_rect and ta_rect[3] > ta_rect[1] else 20
         return Pane(rect=rect, line_h=float(lh), cell_w=lh * 0.45, lines=[], x0=l)

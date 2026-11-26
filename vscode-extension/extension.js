@@ -121,7 +121,9 @@ function activate(context) {
     const cmd = (e.execution.commandLine && e.execution.commandLine.value) || '';
     if (!CLAUDE.test(cmd)) return;
     const t = stateOf(e.terminal);
-    Object.assign(t, { ring: [], size: 0, cmd, dims: e.terminal.dimensions || null, exec: e.execution, running: true });
+    const dims = e.terminal.dimensions || null;
+    Object.assign(t, { ring: [], size: 0, cmd, dims, dimsKey: dims ? `${dims.columns}x${dims.rows}` : '',
+                       exec: e.execution, running: true });
     send({ type: 'start', term: t.id, cmd, dims: t.dims, title: t.title });
     if (vscode.window.activeTerminal === e.terminal) send({ type: 'active', term: t.id });
     try {
@@ -152,7 +154,22 @@ function activate(context) {
     send({ type: 'active', term: term && terms.has(term) ? terms.get(term).id : null });
   }));
 
-  subs.push({ dispose: () => { disposed = true; if (sock) sock.destroy(); } });
+  // Terminalgröße nachmelden: Bei zurückgeholten Terminals (nach „Reload Window“) kennt VS Code sie beim
+  // Start von claude oft noch nicht – sobald sie da ist oder sich ändert, schicken.
+  const dimsTimer = setInterval(() => {
+    for (const [term, t] of terms) {
+      if (!t.running) continue;
+      const d = term.dimensions;
+      const key = d ? `${d.columns}x${d.rows}` : '';
+      if (key && key !== t.dimsKey) {
+        t.dimsKey = key;
+        t.dims = d;
+        send({ type: 'dims', term: t.id, dims: d });
+      }
+    }
+  }, 2000);
+
+  subs.push({ dispose: () => { disposed = true; clearInterval(dimsTimer); if (sock) sock.destroy(); } });
   connect();
 }
 

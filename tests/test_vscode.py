@@ -314,3 +314,32 @@ def test_codezeilen_im_editor_bleiben_ebenen():
     snap.host = "wt"                                            # Windows Terminal: ganzes Fenster ist Terminal
     w.set_vision([editor, terminal])
     assert not [p for p in w.platforms if p.row == ROW_VISION]
+
+
+def test_terminal_ohne_groesse_nach_reload():
+    """Regression: Nach „Reload Window“ meldet VS Code für zurückgeholte Terminals keine Größe (0x0) –
+    der Text wurde verworfen. Jetzt: gemerkte Zellgröße (gleicher Editor, gleiche Zeilenhöhe), und
+    sobald die Größe nachgemeldet wird, genau kalibrieren."""
+    rect = (300, 100, 300 + 100 * 9, 100 + 20 * 22)
+    ta = (310, 100 + 5 * 22, 320, 100 + 6 * 22)                       # Eingabefeld: 22 px hoch
+    # 1) früher einmal genau gemessen (frisches Terminal mit Größe)
+    hub = _hub_mit_sitzung()
+    vscode.build_pane(rect, next(iter(hub.sessions.values())), ta, now=10.0)
+    # 2) neues Pet, zurückgeholtes Terminal ohne Größe
+    hub2 = StreamHub()
+    hub2.handle(1, {"type": "hello", "app": "Visual Studio Code", "workspace": "projekt"})
+    hub2.handle(1, {"type": "start", "term": "t1", "cmd": "claude", "dims": None, "replay": True})
+    hub2.handle(1, {"type": "data", "term": "t1", "d": "Hallo trotz Reload"})
+    s = next(iter(hub2.sessions.values()))
+    s.emu.last_feed = 0.0
+    pane = vscode.build_pane(rect, s, ta, now=10.0)
+    assert s.cell == (9.0, 22.0) and s.cell_guessed and len(pane.lines) == 20
+    assert any("Hallo trotz Reload" in t for _, t in pane.lines)
+    # anderer Monitor/Zoom (Eingabefeld 30 px): gemerkte Größe passt nicht -> lieber leer als falsch
+    s.cell = None
+    assert vscode.build_pane(rect, s, (310, 110, 320, 140), now=10.0).lines == []
+    # 3) die Erweiterung meldet die Größe nach -> genau kalibrieren
+    hub2.handle(1, {"type": "dims", "term": "t1", "dims": {"columns": 100, "rows": 20}})
+    assert s.start_dims == (100, 20) and s.cell is None
+    vscode.build_pane(rect, s, ta, now=10.0)
+    assert s.cell == (9.0, 22.0) and not s.cell_guessed

@@ -32,3 +32,11 @@ def qapp():
     # QApplication (nicht nur QGuiApplication): Fenster-Widgets brauchen sie, sonst bricht Qt hart ab
     from PyQt6.QtWidgets import QApplication
     return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture(autouse=True)
+def _eigener_datenordner_fuer_zellgroessen(tmp_path, monkeypatch):
+    """Gemerkte Zellgrößen (vscode.zellen.json) nie in den echten Datenordner schreiben."""
+    from claude_pet import vscode
+    monkeypatch.setattr(vscode, "data_dir", lambda *p: str(tmp_path.joinpath(*p)))
+    monkeypatch.setattr(vscode, "_HINTS", None)

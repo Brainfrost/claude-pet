@@ -2,7 +2,7 @@
   "name": "claude-pet-terminal",
   "displayName": "claude-pet: Terminal",
   "description": "Gibt dem claude-pet die Terminal-Ausgabe von Claude Code weiter (nur lokal, über eine Named Pipe / einen Unix-Socket).",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "claude-pet",
   "license": "MIT",
   "engines": { "vscode": "^1.93.0" },
