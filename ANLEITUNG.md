@@ -114,8 +114,12 @@ Terminal genauso.
   Schlafplatz: einen ungenutzten Tab (nie den, in dem Claude gerade arbeitet) oder eine stille Stelle
   weit weg von deiner Maus. Dort schläft es, bis es ausgeschlafen ist, und kommt dann von selbst
   zurück. Weckst du es, lässt es sich eine Weile in Ruhe. Abends gähnt es, nachts schläft es.
-- **Wächst** mit eurer gemeinsamen Arbeitszeit: nach ca. 20 aktiven Stunden „jung“, nach ca. 120
-  „erwachsen“. Je nach Arbeitsart bekommt es Accessoires (Bauhelm, Brille, Lupe).
+- **Wächst** mit eurer gemeinsamen Arbeitszeit: nach ca. 20 aktiven Stunden „jung“ (dabei schlüpft es
+  aus dem Ei), nach ca. 120 „erwachsen“. Je nach Arbeitsart bekommt es Accessoires (Bauhelm, Brille, Lupe).
+- **Ist lebendig:** Es schaut deiner Maus nach, blinzelt, bewegt beim Reden den Mund und streckt sich,
+  schüttelt sich, legt den Kopf schief oder niest. Kommst du nach einer Weile mit der Maus vorbei, winkt
+  es dir. Je nach Figur wedelt der Schwanz, winken die Arme, flattert der Saum. Zum Schlafen legt es
+  sich richtig hin; dem Ball pirscht es sich geduckt an, bevor es draufspringt.
 - **Tagesmomente:** Mittag, Feierabend, Freitagnachmittag, dazu eine Pausen-Erinnerung nach 2 Stunden am Stück.
 - **Jahreszeiten:** Herbstlaub, Schnee mit Wintermütze, Blüten und Pusteblumen fallen auf die Textzeilen.
 

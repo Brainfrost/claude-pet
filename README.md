@@ -35,14 +35,14 @@ python -m venv .venv
 | `vsix.py` + `vscode-extension/` | Begleit-Erweiterung: liest `claude`-Ausgabe per Shell-Integration; bauen/installieren ohne Node |
 | `world.py` | Plattformen: Textstücke, Pane-Boden, Fensterkanten, Bildanalyse-Kanten; erkennt Scrollen |
 | `vision.py` | Bildanalyse: waagrechte Kanten in beliebigen Fenstern (GDI-Aufnahme, eigener Hintergrund-Thread) |
-| `pet.py` | Physik und Bewegung (laufen, springen, klettern, Tricks) |
+| `pet.py` | Physik und Bewegung (laufen, springen, klettern, Tricks), Gesten, Mimik, Blickrichtung, Schlüpfen |
 | `brain.py` | Charakter: welche Session, Tab-Wechsel, Maus-Verhalten |
 | `reactions.py` | erkennt Ereignisse im Text/Tab-Titel, liest laufend mit |
 | `speech.py` / `personas.py` | Haiku-Sprüche + Aktionen, Grund- und individuelle Persönlichkeit |
 | `mind.py` | Hirn: Lagebild → Haiku-Plan (Gedanke, 1–3 Schritte, Gedächtnis), Ausführung über Brain/Pet |
 | `motifs.py` | Motiv-Wächter: gehäufte Wörter/Bilder/Satzanfänge erkennen – live als „lass weg“-Hinweis an Haiku, im festen Spruch-Satz einmalig gezielt neu schreiben lassen |
 | `growth.py` / `stats.py` | Entwicklung: XP aus den Transcripts, Stufen, Accessoires, Tricks, Bindung, Stimmung |
-| `creatures.py` | rendert die Figuren aus `design/pet-data.json` |
+| `creatures.py` | rendert die Figuren aus `design/pet-data.json` in doppelter Auflösung: Augen, Münder, bewegte Körperteile, Liegeposen |
 | `windows.py` | Fenster: Pet, Sprechblase, Reiter-Effekt, Jahreszeiten, Traumwolke, Bug-Jagd, Entwickler-Ansicht |
 | `seasons.py` | Laub/Schnee/Blüten fallen auf Textzeilen und bleiben liegen |
 | `diary.py` / `book.py` | Tagebuch (Zähler, Haiku-Einträge, Wochenrückblick) und das Lesefenster |
@@ -172,7 +172,8 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
   Zeilen, nur seit der Adoption). Maßstab sind **aktive Minuten** (jede Minute mit Claude-Aktivität zählt
   einmal, höchstens 8 h pro Tag) – robust gegen Automatisierungs-Tage. Subagents zählen nur als Zeit.
 - **Wachstum** (kalibriert an echten Daten, ~4 aktive h pro Arbeitstag): Baby (im Ei) → jung nach 20 aktiven
-  Stunden (~1–2 Wochen) → erwachsen nach 120 Stunden (~2 Monate). Die Figur wird größer.
+  Stunden (~1–2 Wochen) → erwachsen nach 120 Stunden (~2 Monate). Die Figur wird größer; beim ersten
+  Wachsen schlüpft sie sichtbar aus dem Ei.
 - **Accessoires** nach Arbeitsart (nur eigene Sessions): Bauhelm ab 3000 Bash/PowerShell-Aufrufen,
   Brille ab 600 Web-Recherchen, Lupe ab 800 Lese-/Suchaufrufen – je ein bis drei Wochen. Im Tray unter
   „Accessoires“ an-/abschaltbar bzw. mit Fortschritt.
@@ -199,7 +200,8 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
 
 - **Ball** (Tray → „Ball werfen“): hüpft über Textzeilen, Fensterkanten und erkannte Ebenen, rollt über
   Kanten. Das Pet jagt ihm nach (verspielt immer, neugierig meist, ängstlich manchmal, faul selten),
-  schnappt ihn und bringt ihn auf die Ebene unter deinem Mauszeiger. Du kannst den Ball greifen und werfen.
+  schnappt ihn und bringt ihn auf die Ebene unter deinem Mauszeiger. Fliegt der Ball, funkeln die Augen;
+  liegt er auf derselben Zeile, pirscht es sich geduckt an, wackelt mit dem Hintern und springt drauf. Du kannst den Ball greifen und werfen.
   Nach 3 Minuten ohne Beachtung wird er weggeräumt (oder Tray → „Ball wegräumen“).
 - **Wörter fressen:** „bug“, „TODO“, „FIXME“, „error“, „Fehler“ (und die Schatzkisten-Wörter) im Text – das Pet läuft hin und knabbert
   das Wort an (der vordere Teil verschwindet kurz unter einem Biss mit Krümeln). Neues Futter im Text
@@ -211,6 +213,22 @@ Lässt du es auf einem Reiter los, zieht es in diese Session.
   danach alle 30 Min.; nach einer Pause begrüßt es dich. Im Ruhemodus still.
 - **Git-Momente:** `git commit` / `git push` in einer Session (Befehl oder Ausgabe, nicht Fließtext) →
   Tänzchen mit Konfetti und ein Spruch.
+
+## Darstellung und Animationen
+
+- **Feinere Grafik:** Die 16-Pixel-Figuren werden per Scale2x in doppelter Auflösung gezeichnet (rundere
+  Kanten). Ein Hauch heller Umriss hebt dunkle Figuren vom dunklen Terminal ab, ein weicher Schatten
+  stellt sie auf die Zeile. Abends wirkt das Licht warm, nachts kühl.
+- **Augen und Mund:** Die Augen folgen der Maus, schauen beim Laufen nach vorn und beim Fallen nach unten
+  und blinzeln in Stufen. Beim Reden bewegt sich der Mund, beim Fressen kaut er, beim Gähnen geht er weit
+  auf. Ausdrücke: erschrocken, schwindelig (nach harter Landung), müde, funkelnd.
+- **Körperteile** je Figur (`creatures.PARTS`): Schwanz, Arme, Tentakel, Kiemen, Saum, Dampf, Lämpchen …
+- **Gesten** im Leerlauf, je nach Charakter: strecken, schütteln, Kopf schief, umschauen, wippen,
+  niesen. Dazu tanzen, schmiegen (beim Streicheln) und winken, wenn die Maus nach einer Weile wiederkommt.
+- **Sprung und Klettern:** ausholen, abspringen, am Scheitel die Beine anziehen, federnd landen (mit
+  Staubwölkchen). Am Tab-Reiter pendelt es und zieht sich im Klimmzug-Rhythmus hinein.
+- **Schlafen** in einer eigenen Liegepose je Figur; **Schlüpfen:** beim ersten Wachsen wackelt das Ei,
+  bekommt Risse und bricht auf.
 
 ## Ebenen in allen Fenstern (Bildanalyse)
 
