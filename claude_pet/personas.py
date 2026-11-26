@@ -212,9 +212,27 @@ def lines_prompt(prof):
     user = (
         "Schreib für jeden Anlass 3 verschiedene, kurze Sprüche (höchstens 10 Wörter, Ich-Form, Deutsch), "
         "witzig und unverwechselbar für genau dieses Pet. Den typischen Laut nur in wenigen Sprüchen. "
-        "Keine Namen, kein Markdown.\n"
+        "Abwechslung: kein Wort, kein Bild und keine Marotte in mehr als zwei Sprüchen, und nicht mehrere "
+        "Sprüche gleich anfangen. Keine Namen, kein Markdown.\n"
         f"Anlässe:\n{kinds}\n\n"
         'Antworte NUR mit JSON: {"poke": ["…", "…", "…"], "stroke": [...], ...} mit genau diesen Schlüsseln.'
+    )
+    return system, user
+
+
+def rewrite_prompt(prof, items, avoid):
+    """Einzelne Sprüche des festen Satzes neu schreiben lassen (Motiv-Wächter, motifs.py).
+    items: [(anlass, index, alter_spruch)] -> Antwort {"1": "neu", "2": "neu", …}."""
+    system, _ = lines_prompt(prof)
+    listing = "\n".join(f'{n}. Anlass: {LINE_KINDS.get(k, k)} – bisher: „{t}“'
+                        for n, (k, _i, t) in enumerate(items, 1))
+    user = (
+        "Ein paar deiner Sprüche wiederholen immer dasselbe Bild. Schreib jeden der folgenden Sprüche neu: "
+        "gleicher Anlass, höchstens 10 Wörter, Ich-Form, Deutsch, ganz in deiner Stimme – aber ohne diese "
+        f"Wörter und Bilder: {', '.join(avoid)}. Jeder neue Spruch fängt anders an. Platzhalter in "
+        "geschweiften Klammern (z.B. {hours}) genau übernehmen. Keine Namen, kein Markdown.\n\n"
+        f"{listing}\n\n"
+        'Antworte NUR mit JSON: {"1": "…", "2": "…", …} – für jede Nummer einen neuen Spruch.'
     )
     return system, user
 

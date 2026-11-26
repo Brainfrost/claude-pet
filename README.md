@@ -40,6 +40,7 @@ python -m venv .venv
 | `reactions.py` | erkennt Ereignisse im Text/Tab-Titel, liest laufend mit |
 | `speech.py` / `personas.py` | Haiku-Sprüche + Aktionen, Grund- und individuelle Persönlichkeit |
 | `mind.py` | Hirn: Lagebild → Haiku-Plan (Gedanke, 1–3 Schritte, Gedächtnis), Ausführung über Brain/Pet |
+| `motifs.py` | Motiv-Wächter: gehäufte Wörter/Bilder/Satzanfänge erkennen – live als „lass weg“-Hinweis an Haiku, im festen Spruch-Satz einmalig gezielt neu schreiben lassen |
 | `growth.py` / `stats.py` | Entwicklung: XP aus den Transcripts, Stufen, Accessoires, Tricks, Bindung, Stimmung |
 | `creatures.py` | rendert die Figuren aus `design/pet-data.json` |
 | `windows.py` | Fenster: Pet, Sprechblase, Reiter-Effekt, Jahreszeiten, Traumwolke, Bug-Jagd, Entwickler-Ansicht |
@@ -90,7 +91,7 @@ xterm.js zeichnet auf ein Canvas, UIA sieht dort keinen Text. Deshalb:
 
 ```
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest tests        # 111 Tests, ohne Terminal/Bildschirm (Qt offscreen)
+.venv\Scripts\python -m pytest tests        # 117 Tests, ohne Terminal/Bildschirm (Qt offscreen)
 .venv\Scripts\python -m pyflakes claude_pet tests
 ```
 

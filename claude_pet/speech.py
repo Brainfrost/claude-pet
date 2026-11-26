@@ -15,7 +15,7 @@ from collections import deque
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, pyqtSignal
 
-from . import personas
+from . import motifs, personas
 from .paths import data_dir
 
 log = logging.getLogger(__name__)
@@ -346,6 +346,7 @@ class Speech(QObject):
         self.rates = RATES.get(prof["personality"], RATES["neugierig"])
         self.history = deque()
         self.recent = deque(maxlen=8)          # zuletzt gesagt – damit es sich nicht wiederholt
+        self.motif_hist = deque(maxlen=motifs.LIVE_WINDOW)   # für den Motiv-Wächter (Sprüche + Gedanken)
         self.last_llm = 0.0
         self.last_canned = 0.0
         self.busy = False
@@ -435,6 +436,40 @@ class Speech(QObject):
         else:
             log.warning("Spruch-Satz nicht verwertbar: %s", out[:200])
 
+    def rewrite_lines(self, prof, items, avoid, callback, on_fail=None):
+        """Motiv-Wächter: einzelne Sprüche des festen Satzes neu schreiben lassen.
+        callback({(anlass, index): neuer_spruch}) mit nur den brauchbaren Ergebnissen."""
+        if not self.exe or not items:
+            return False
+        system, user = personas.rewrite_prompt(prof, items, avoid)
+
+        def done(out):
+            m = re.search(r"\{.*\}", out or "", re.S)
+            try:
+                data = json.loads(m.group(0)) if m else {}
+            except ValueError:
+                data = {}
+            new = {}
+            for n, (k, i, old) in enumerate(items, 1):
+                text = motifs.accept_rewrite(old, str(data.get(str(n), "")), avoid)
+                if text:
+                    new[(k, i)] = text
+            callback(new)
+
+        self._run(user, system=system, on_out=done, count=False, on_fail=on_fail)
+        return True
+
+    def note_said(self, text):
+        """Für den Motiv-Wächter merken, was das Pet gesagt/gedacht hat."""
+        if text:
+            self.motif_hist.append(text)
+
+    def avoid_hint(self, topic=""):
+        """Zuletzt zu oft benutzte Motive – ohne die, um die es gerade wirklich geht (z.B. „Hook“ bei
+        einem weiteren Hook-Fehler)."""
+        on_topic = motifs.stems(topic)
+        return [w for w in motifs.avoid_hint(self.motif_hist) if w.lower()[:5] not in on_topic]
+
     def invent_persona(self, prof, callback):
         """Haiku erfindet eine Persönlichkeit und ruft callback(text) auf. False ohne claude-CLI."""
         if not self.exe:
@@ -469,6 +504,10 @@ class Speech(QObject):
             parts.append(f"Was gerade neu passiert ist:\n{new_text}")
         if ctx and ctx != new_text:
             parts.append(f"Was sonst im Terminal steht (nur zur Orientierung):\n{ctx}")
+        avoid = self.avoid_hint(f"{detail}\n{new_text}")
+        if avoid:
+            parts.append("Diese Wörter und Bilder hattest du zuletzt zu oft – lass sie diesmal ganz weg: "
+                         + ", ".join(avoid))
         if self.recent:
             parts.append("Deine letzten Sprüche (nichts davon wiederholen):\n"
                          + "\n".join(f"- {r}" for r in self.recent))
@@ -485,6 +524,7 @@ class Speech(QObject):
         if say:
             say = say.strip('"„“»«')
             self.recent.append(say)
+            self.note_said(say)
             self.said.emit(say)
         if act != "nichts":
             self.acted.emit(act, target)

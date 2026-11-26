@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QApplication
 
 from datetime import date, datetime, timedelta
 
-from . import creatures, daily, growth, osapi, personas, profile, quiet, settings, vision
+from . import creatures, daily, growth, motifs, osapi, personas, profile, quiet, settings, vision
 from .adoption import AdoptionDialog
 from .ball import Ball
 from .brain import Brain
@@ -33,6 +33,7 @@ from .world import World
 
 log = logging.getLogger(__name__)
 
+LINES_CHECK = 1         # Version des Motiv-Wächters für den festen Spruch-Satz
 MESSENGER_GAP = 30      # s Mindestabstand zwischen zwei Botengängen
 MESSENGER_KEEP = 180    # s so lange wartet eine Meldung höchstens
 
@@ -132,6 +133,8 @@ class Controller:
         self.tray = Tray(self)
         if not self.prof.get("lines"):
             self.speech.invent_lines(self.prof, self.on_lines)
+        else:
+            QTimer.singleShot(8000, self._check_lines)   # Motiv-Wächter für den festen Spruch-Satz
         if fresh:
             QTimer.singleShot(2500, lambda: self._say(f"Hallo! Ich bin {self.prof['name']}. Schön, dass du mich adoptiert hast!"))
 
@@ -171,8 +174,34 @@ class Controller:
     def on_lines(self, lines):
         """Persönlicher Spruch-Satz von Haiku – einmalig, danach gratis und offline."""
         self.prof["lines"] = lines
+        self.prof.pop("lines_check", None)
         profile.save(self.prof)
         log.info("Persönliche Sprüche für %s: %d Anlässe", self.prof["name"], len(lines))
+        self._check_lines()
+
+    def _check_lines(self):
+        """Einmal pro Spruch-Satz: wiederholt er immer dasselbe Bild (z.B. „Wetten …“), die betroffenen
+        Sprüche von Haiku neu schreiben lassen (motifs.py). Schlägt das fehl, beim nächsten Start nochmal."""
+        if self.prof.get("lines_check", 0) >= LINES_CHECK or not self.prof.get("lines") or not self.speech.exe:
+            return
+        items, avoid = motifs.offenders(self.prof["lines"], self.prof.get("personality", ""))
+        if not items:
+            self.prof["lines_check"] = LINES_CHECK
+            profile.save(self.prof)
+            return
+        log.info("Spruch-Satz: %d Sprüche wiederholen sich (%s) – werden neu geschrieben",
+                 len(items), ", ".join(avoid))
+        self.speech.rewrite_lines(self.prof, items, avoid, self._on_rewritten)
+
+    def _on_rewritten(self, new):
+        lines = self.prof.get("lines") or {}
+        for (kind, i), text in new.items():
+            if kind in lines and i < len(lines[kind]):
+                log.info("  %s: „%s“ -> „%s“", kind, lines[kind][i], text)
+                lines[kind][i] = text
+        if new:
+            self.prof["lines_check"] = LINES_CHECK
+            profile.save(self.prof)
 
     def _hover(self, now, cursor):
         """Mauszeiger ruht auf einem Wort im Terminal -> das Pet reagiert (selten auch mit Haiku)."""

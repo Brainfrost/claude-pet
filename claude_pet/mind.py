@@ -245,6 +245,7 @@ class Mind:
         self.plan = deque(steps)
         self.step = None
         self.thought = thought
+        getattr(self.ctl.speech, "note_said", lambda t: None)(thought)
         log.info("Hirn: %s | %s", thought, ", ".join(f"{s.verb}{'→' + s.ziel if s.ziel else ''} {s.dauer:.0f}s"
                                                      for s in steps))
         if memo and remember(self.ctl.prof, memo, time.strftime("%Y-%m-%d")):
@@ -281,6 +282,10 @@ class Mind:
             lines.append("Zuletzt passiert:\n" + "\n".join(f"- {e}" for e in ev[-6:]))
         if self.did:
             lines.append("Was du zuletzt gemacht hast: " + ", ".join(self.did) + ".")
+        avoid = getattr(self.ctl.speech, "avoid_hint", lambda: [])()
+        if avoid:
+            lines.append("Diese Wörter und Bilder hattest du zuletzt zu oft – im Gedanken diesmal weglassen: "
+                         + ", ".join(avoid) + ".")
         mem = [m["text"] for m in self.ctl.prof.get("memory", [])][-6:]
         if mem:
             lines.append("Dein Gedächtnis:\n" + "\n".join(f"- {m}" for m in mem))
